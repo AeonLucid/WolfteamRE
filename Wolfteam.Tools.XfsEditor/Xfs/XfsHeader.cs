@@ -1,6 +1,6 @@
 ﻿namespace Wolfteam.Tools.XfsEditor.Xfs
 {
-    public struct XfsHeader
+    public class XfsHeader
     {
         public byte[] Junk { get; set; }
 
