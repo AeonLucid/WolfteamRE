@@ -24,10 +24,10 @@ jobs:
           global-json-file: global.json
           
       - name: Restore dependencies
-        run: dotnet restore Wolfteam.Server.Tests
+        run: dotnet restore src/Wolfteam.Server.Tests
         
       - name: Build
-        run: dotnet build Wolfteam.Server.Tests --no-restore
+        run: dotnet build src/Wolfteam.Server.Tests --no-restore
       
       - name: Test
-        run: dotnet test Wolfteam.Server.Tests/Wolfteam.Server.Tests.csproj --no-build --verbosity normal
+        run: dotnet test src/Wolfteam.Server.Tests/Wolfteam.Server.Tests.csproj --no-build --verbosity normal
