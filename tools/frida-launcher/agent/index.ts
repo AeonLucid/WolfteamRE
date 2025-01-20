@@ -38,8 +38,8 @@ function waitForUnpack() {
     }, 100);
 }
 
-const hashData = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const hashDataPtr = Memory.allocUtf8String(hashData);
+// const hashData = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+// const hashDataPtr = Memory.allocUtf8String(hashData);
 
 function main() {
     if (started) {
@@ -100,8 +100,8 @@ function main() {
     // sha1_append 0x461C00
     Interceptor.attach(ptr(0x461C00), {
         onEnter: function (args) {
-            args[1] = hashDataPtr;
-            args[2] = ptr(hashData.length);
+            // args[1] = hashDataPtr;
+            // args[2] = ptr(hashData.length);
 
             const pCtx = args[0];
             const pBuf = args[1];
@@ -111,14 +111,14 @@ function main() {
             console.log(`:: NyxLauncher::Sha1Append(pCtx ${pCtx}, pBuf ${pBuf}, pLen ${pLen})`);
             console.log(hexdump(pBuf, { length: pLen }));
 
-            console.log('================== ctx before');
-            console.log(hexdump(pCtx, { length: 0x60 }));
+            // console.log('================== ctx before');
+            // console.log(hexdump(pCtx, { length: 0x60 }));
 
             this.pCtx = pCtx;
         },
         onLeave: function (retval) {
-            console.log('================== ctx after');
-            console.log(hexdump(this.pCtx, { length: 0x60 }));
+            // console.log('================== ctx after');
+            // console.log(hexdump(this.pCtx, { length: 0x60 }));
         }
     });
 
@@ -128,14 +128,34 @@ function main() {
             const pCtx = args[0];
 
             console.log(`:: NyxLauncher::Sha1Final(pCtx ${pCtx}, ..)`);
-            console.log('================== ctx before');
-            console.log(hexdump(pCtx, { length: 0x60 }));
+            // console.log('================== ctx before');
+            // console.log(hexdump(pCtx, { length: 0x60 }));
 
             this.pCtx = pCtx;
         },
         onLeave: function (retval) {
-            console.log('================== ctx after');
-            console.log(hexdump(this.pCtx, { length: 0x60 }));
+            // console.log('================== ctx after');
+            // console.log(hexdump(this.pCtx, { length: 0x60 }));
+        }
+    });
+
+    // md5(in, out, len) 0x448D80
+    Interceptor.attach(ptr(0x448D80), {
+        onEnter: function (args) {
+            const pIn = args[0];
+            const pOut = args[1];
+            const pLen = args[2].toInt32();
+
+            console.log(`:: NyxLauncher::Md5(pIn ${pIn}, pOut ${pOut}, pLen ${pLen})`);
+            if (pLen < 0x32) {
+                console.log(hexdump(pIn, { length: pLen }));
+            }
+
+            this.pOut = pOut;
+        },
+        onLeave: function (retval) {
+            console.log('Output');
+            console.log(hexdump(this.pOut, { length: 0x20 }));
         }
     });
 
@@ -149,7 +169,31 @@ function main() {
             console.log(`:: NyxLauncher::AesEncrypt(pCtx ${pIn}, pUk1 ${pOut}, pUk2 ${pCtx})`);
             console.log(hexdump(pIn, { length: 16 }));
         }
-    })
+    });
+
+    // Unknown.
+    // Interceptor.attach(ptr(0x401A80), {
+    //     onEnter: function (args) {
+    //         const context = this.context as Ia32CpuContext;
+    //         const pDest = args[0];
+    //         const pData = context.ecx;
+    //         const pDataLen = context.edx;
+
+    //         console.log(`:: NyxLauncher::Unknown(${pDest}, ${pData}, ${pDataLen})`);
+    //         // console.log('Input');
+    //         // console.log(hexdump(pData, { length: pDataLen }));
+
+    //         this.pDest = pDest;
+    //     },
+    //     onLeave: function (retval) {
+    //         if (this.pDest.isNull()) {
+    //             return;
+    //         }
+            
+    //         console.log('Output');
+    //         console.log(hexdump(this.pDest, { length: 0x20 }));
+    //     }
+    // })
 
     // Login packet encryption.
     Interceptor.attach(ptr(0x447DC0), {
