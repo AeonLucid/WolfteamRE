@@ -13,12 +13,12 @@ public static class LoginRequest
 {
     private static readonly ILogger Logger = Log.ForContext(typeof(LoginRequest));
     
-    public static bool TryParseStatic(Aes crypto, ref PacketReader reader, [NotNullWhen(true)] out string? username, out uint magic)
+    public static bool TryParseStatic(Aes crypto, ref ReadOnlySequence<byte> data, [NotNullWhen(true)] out string? username, out uint magic)
     {
         // Read and decrypt into buffer.
         Span<byte> buffer = stackalloc byte[32];
 
-        if (!TryReadEncrypted(crypto, buffer, ref reader))
+        if (!TryReadEncrypted(crypto, buffer, ref data))
         {
             username = null;
             magic = 0;
@@ -37,12 +37,12 @@ public static class LoginRequest
         return true;
     }
     
-    public static bool TryDecryptAuth(Aes crypto, ref PacketReader reader, out string? password, out int version)
+    public static bool TryDecryptAuth(Aes crypto, ref ReadOnlySequence<byte> data, out string? password, out int version)
     {
         // Read and decrypt into buffer.
         Span<byte> buffer = stackalloc byte[32];
         
-        if (!TryReadEncrypted(crypto, buffer, ref reader))
+        if (!TryReadEncrypted(crypto, buffer, ref data))
         {
             Logger.Warning("Failed to decrypt auth packet");
             
@@ -108,9 +108,9 @@ public static class LoginRequest
         return hashOutput.Slice(0, 16).ToArray();
     }
 
-    private static bool TryReadEncrypted(Aes crypto, scoped Span<byte> buffer, ref PacketReader reader)
+    private static bool TryReadEncrypted(Aes crypto, scoped Span<byte> buffer, ref ReadOnlySequence<byte> reader)
     {
-        reader.ReadBytes(buffer.Length).CopyTo(buffer);
+        reader.CopyTo(buffer);
         return crypto.TryDecryptEcb(buffer, buffer, PaddingMode.None, out var bytesWritten) && bytesWritten == buffer.Length;
     }
 

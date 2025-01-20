@@ -16,18 +16,20 @@ public class WolfConnection : IDisposable
     
     private readonly Guid _id;
     private readonly Socket _client;
-    private readonly Pipe _pipe;
+    private readonly Pipe _recvPipe;
+    private readonly Pipe _sendPipe;
     private readonly Aes _cryptoStatic;
     private readonly Aes _cryptoAuth;
 
     private bool _disposed;
-    private Task? _incomingTask;
+    private Task? connectionTask;
 
     public WolfConnection(Guid id, Socket client)
     {
         _id = id;
         _client = client;
-        _pipe = new Pipe(new PipeOptions());
+        _recvPipe = new Pipe(new PipeOptions());
+        _sendPipe = new Pipe(new PipeOptions());
         _cryptoStatic = Aes.Create();
         _cryptoStatic.Key = StaticKey;
         _cryptoAuth = Aes.Create();
@@ -35,18 +37,72 @@ public class WolfConnection : IDisposable
 
     public void Start()
     {
-        if (_incomingTask != null)
+        if (connectionTask != null)
         {
             throw new InvalidOperationException("Receive task is already running");
         }
         
+        var sendTask = SendAsync();
         var receiveTask = ReceiveAsync();
         var handleTask = ProcessAsync();
         
-        _incomingTask = Task.WhenAll(receiveTask, handleTask).ContinueWith(_ =>
+        connectionTask = Task.WhenAll(sendTask, receiveTask, handleTask).ContinueWith(_ =>
         {
             Dispose();
         });
+    }
+
+    private async Task SendAsync()
+    {
+        var reader = _sendPipe.Reader;
+
+        try
+        {
+            while (true)
+            {
+                var result = await reader.ReadAsync();
+                var buffer = result.Buffer;
+
+                try
+                {
+                    // Send buffer to client.
+                    var current = buffer;
+                    
+                    while (current.Length > 0)
+                    {
+                        var bytes = await _client.SendAsync(current.First);
+                        if (bytes == 0)
+                        {
+                            Logger.Information("Client {ConnectionId} disconnected", _id);
+                            return;
+                        }
+
+                        current = current.Slice(bytes);
+                    }
+
+                    if (result.IsCompleted)
+                    {
+                        break;
+                    }
+                }
+                finally
+                {
+                    reader.AdvanceTo(buffer.End);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.Error(e, "Error sending data to client {ConnectionId}", _id);
+        }
+        finally
+        {
+            Logger.Information("Client {ConnectionId} stopped send loop", _id);
+            
+            await reader.CompleteAsync();
+            
+            Disconnect();
+        }
     }
 
     private async Task ReceiveAsync()
@@ -55,7 +111,7 @@ public class WolfConnection : IDisposable
         {
             while (true)
             {
-                var memory = _pipe.Writer.GetMemory(MinimumBufferSize);
+                var memory = _recvPipe.Writer.GetMemory(MinimumBufferSize);
                 var bytesRead = await _client.ReceiveAsync(memory, SocketFlags.None);
                 if (bytesRead == 0)
                 {
@@ -63,9 +119,9 @@ public class WolfConnection : IDisposable
                     break;
                 }
 
-                _pipe.Writer.Advance(bytesRead);
+                _recvPipe.Writer.Advance(bytesRead);
 
-                var result = await _pipe.Writer.FlushAsync();
+                var result = await _recvPipe.Writer.FlushAsync();
                 if (result.IsCompleted)
                 {
                     break;
@@ -80,7 +136,7 @@ public class WolfConnection : IDisposable
         {
             Logger.Information("Client {ConnectionId} stopped receive loop", _id);
 
-            await _pipe.Writer.CompleteAsync();
+            await _recvPipe.Writer.CompleteAsync();
             
             Disconnect();
         }
@@ -88,7 +144,7 @@ public class WolfConnection : IDisposable
 
     private async Task ProcessAsync()
     {
-        var reader = _pipe.Reader;
+        var reader = _recvPipe.Reader;
 
         try
         {
@@ -133,6 +189,12 @@ public class WolfConnection : IDisposable
             Disconnect();
         }
     }
+
+    private async ValueTask WriteDataAsync(byte[] packet)
+    {
+        await _sendPipe.Writer.WriteAsync(packet);
+        await _sendPipe.Writer.FlushAsync();
+    }
     
     private async ValueTask ProcessPacketAsync(ReadOnlySequence<byte> packet)
     {
@@ -148,9 +210,12 @@ public class WolfConnection : IDisposable
         // Very simple packet handler, will implement a better one once more packets added.
         switch (packetId)
         {
-            case 4880:
+            case 0x1310:
             {
-                if (!LoginRequest.TryParseStatic(_cryptoStatic, ref reader, out var username, out var magic))
+                var staticData = reader.ReadBytes(32);
+                var authData = reader.ReadBytes(32);
+                
+                if (!LoginRequest.TryParseStatic(_cryptoStatic, ref staticData, out var username, out var magic))
                 {
                     Logger.Warning("Invalid username data");
                     return;
@@ -158,13 +223,13 @@ public class WolfConnection : IDisposable
 
                 Logger.Information("  Username {Username}", username);
                 Logger.Information("  Magic    {Magic}", magic);
-                
+
                 // TODO: Retrieve password hash from database.
                 var passwordHash = MD5.HashData("qqq"u8.ToArray());
                 
                 _cryptoAuth.Key = LoginRequest.CreateAuthKey(username, passwordHash, magic);
                 
-                if (!LoginRequest.TryDecryptAuth(_cryptoAuth, ref reader, out var password, out var version))
+                if (!LoginRequest.TryDecryptAuth(_cryptoAuth, ref authData, out var password, out var version))
                 {
                     Logger.Warning("Invalid password data");
                     return;
@@ -172,16 +237,74 @@ public class WolfConnection : IDisposable
                 
                 Logger.Information("  Password {Password}", password);
                 Logger.Information("  Version  {Version}", version);
+
+                // 0x1312
+                // - 0x00 = ? (+8 DWORD, +12 DWORD) or (+8 CHAR, + 24 CHAR)
+                // - 0x03 = Can't connect due to too many users
+                // - 0x10 = ?
+                // - 0x11 = ?
+                // - 0x19 = Uncertified ID
+                // - 0x30 = Uncertified ID (But also accepts more data)
+                // - 0x60 = Incorrect client version
+                // - 0x91 = Uncertified ID
+                // - 0x95 = Can't connect due to too many users
+                
+                await WriteDataAsync([
+                    0x08, 0x00, 0x00, 0x00,
+                    0x12, 0x13, 0x00, 0x00
+                ]);
+                break;
+            }
+            case 0x1320:
+            {
+                Logger.Warning("Unhandled packet {PacketId}, FacebookLogin", packetId);
+                break;
+            }
+            case 0x4000:
+            {
+                Logger.Warning("Unhandled packet {PacketId}, Pc data?", packetId);
+                
+                // 0x4001
+                // - 0x30 = Game play prohibited
+                // await WriteDataAsync([
+                //     0x2C, 0x00, 0x00, 0x00,
+                //     0x01, 0x40, 0x30, 0x00,
+                //     0x00, 0x00, 0x00, 0x00, // tm_sec
+                //     0x10, 0x00, 0x00, 0x00, // tm_min
+                //     0x00, 0x00, 0x00, 0x00, // tm_hour
+                //     0x00, 0x00, 0x00, 0x00, // tm_mday
+                //     0x00, 0x00, 0x00, 0x00, // tm_mon
+                //     0x00, 0x00, 0x00, 0x00, // tm_year
+                //     0x00, 0x00, 0x00, 0x00, // tm_wday
+                //     0x00, 0x00, 0x00, 0x00, // tm_yday
+                //     0x00, 0x00, 0x00, 0x00, // tm_isdst
+                // ]);
+                
+                // Start game
+                await WriteDataAsync([
+                    0x08, 0x00, 0x00, 0x00,
+                    0x01, 0x40, 0x01, 0x90,
+                ]);
+                
+                // Specify third launch parameter.
+                // await WriteDataAsync([
+                //     0x0C, 0x00, 0x00, 0x00,
+                //     0x01, 0x40, 0x01, 0x90,
+                //     0x05, 0x00, 0x00, 0x00,
+                // ]);
+                break;
+            }
+            default:
+            {
+                Logger.Warning("Unhandled packet {PacketId}", packetId);
                 break;
             }
         }
         
-        if (!reader.Completed)
-        {
-            Logger.Warning("Packet {PacketId} has {Bytes} bytes remaining", packetId, reader.Remaining);
-        }
-
-        await Task.Delay(10);
+        // if (!reader.Completed)
+        // {
+        //     Logger.Warning("Packet {PacketId} has {Bytes} bytes remaining", packetId, reader.Remaining);
+        // }
     }
     
     private static bool TryReadPacket(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> packet)
@@ -241,8 +364,10 @@ public class WolfConnection : IDisposable
         Logger.Verbose("Disposing connection {ConnectionId}", _id);
         
         _disposed = true;
-        _pipe.Writer.CancelPendingFlush();
-        _pipe.Reader.CancelPendingRead();
+        _sendPipe.Writer.CancelPendingFlush();
+        _sendPipe.Reader.CancelPendingRead();
+        _recvPipe.Writer.CancelPendingFlush();
+        _recvPipe.Reader.CancelPendingRead();
         
         Disconnect();
     }

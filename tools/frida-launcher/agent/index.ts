@@ -56,7 +56,15 @@ function main() {
             const pFormat = args[0].readAnsiString();
             const pLine = args[1].readAnsiString();
 
-            console.log(`:: NyxLauncher::Log ${pFormat?.trimEnd()}`);
+            console.log(`:: NyxLauncher::Log1 ${pFormat?.trimEnd()}`);
+        }
+    })
+
+    Interceptor.attach(ptr(0x4399E0), {
+        onEnter: function (args) {
+            const pFormat = args[0].readAnsiString();
+
+            console.log(`:: NyxLauncher::Log2 ${pFormat?.trimEnd()}`);
         }
     })
 
@@ -211,6 +219,72 @@ function main() {
         }
     });
 
+    // Interceptor.attach(ptr(0x40FF2C), {
+    //     onEnter: function (args) {
+    //         const context = this.context as Ia32CpuContext;
+
+    //         console.log(`:: NyxLauncher edx = ${context.edx.readPointer()}`);	
+    //     }
+    // });
+
+    // Interceptor.attach(ptr(0x40EF9F), {
+    //     onEnter: function (args) {
+    //         const context = this.context as Ia32CpuContext;
+
+    //         console.log(`:: NyxLauncher eax = ${context.eax.readPointer()}`);	
+    //     }
+    // });
+
+    // ProcessStream(this, ptr, ptr, buffer, bufLen) 0x40F180
+    // Interceptor.attach(ptr(0x40F180), {
+    //     onEnter: function (args) {
+    //         const pThis = args[0];
+    //         const pPtr1 = args[1];
+    //         const pPtr2 = args[2];
+    //         const pBuffer = args[3];
+    //         const pBufLen = args[4].toInt32();
+
+    //         console.log(`:: NyxLauncher::ProcessStream(${pThis}, ${pPtr1}, ${pPtr2}, ${pBuffer}, ${pBufLen})`);
+    //         console.log(hexdump(pBuffer, { length: pBufLen }));
+    //     }
+    // });
+
+    // DoProcessStream(this, buffer, bufLen) 0x40EF40
+    Interceptor.attach(ptr(0x40EF40), {
+        onEnter: function (args) {
+            const pThis = args[0];
+            const pBuffer = args[1];
+            const pBufLen = args[2];
+
+            console.log(`:: NyxLauncher::DoProcessStream(${pThis}, ${pBuffer}, ${pBufLen})`);
+            // console.log(hexdump(pBuffer, { length: pBufLen }));
+        }
+    });
+
+    // OnMsg(this, ptr1, ptr2) 0x40EE90
+    Interceptor.attach(ptr(0x40EE90), {
+        onEnter: function (args) {
+            const pThis = args[0];
+            const pPtr1 = args[1];
+            const pPtr2 = args[2];
+
+            console.log(`:: NyxLauncher::OnMsg(${pThis}, ${pPtr1}, ${pPtr2})`);
+        }
+    });
+
+    // Test 0x4041A0
+    Interceptor.attach(ptr(0x4041A0), {
+        onEnter: function (args) {
+            console.log(`:: NyxLauncher 0x4041A0`);
+        }
+    });
+    
+    Interceptor.attach(ptr(0x401DF0), {
+        onEnter: function (args) {
+            console.log(`:: NyxLauncher 0x401DF0`);
+        }
+    });
+
     // Hook ws32 send
     Interceptor.attach(Module.findExportByName('ws2_32.dll', 'send')!, {
         onEnter: function (args) {
@@ -224,6 +298,22 @@ function main() {
         },
         onLeave: function (retval) {
             console.log(`:: send returned ${retval}`);
+        }
+    });
+
+    // Hook ws32 recv
+    Interceptor.attach(Module.findExportByName('ws2_32.dll', 'recv')!, {
+        onEnter: function (args) {
+            const s = args[0].toInt32();
+            const buf = args[1];
+            const len = args[2].toInt32();
+            const flags = args[3].toInt32();
+
+            console.log(`:: recv(s: ${s}, buf: ${buf}, len: ${len}, flags: ${flags})`);
+            // console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(DebugSymbol.fromAddress).join('\n'));
+        },
+        onLeave: function (retval) {
+            console.log(`:: recv returned ${retval}`);
         }
     });
 }
