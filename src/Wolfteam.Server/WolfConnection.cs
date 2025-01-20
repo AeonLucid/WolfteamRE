@@ -15,6 +15,7 @@ public abstract class WolfConnection : IDisposable
     private readonly Pipe _recvPipe;
     private readonly Pipe _sendPipe;
 
+    private bool _shutdown;
     private bool _disposed;
     private Task? connectionTask;
 
@@ -57,6 +58,11 @@ public abstract class WolfConnection : IDisposable
 
                 try
                 {
+                    if (result.IsCanceled)
+                    {
+                        break;
+                    }
+                    
                     // Send buffer to client.
                     var current = buffer;
                     
@@ -89,11 +95,11 @@ public abstract class WolfConnection : IDisposable
         }
         finally
         {
-            _logger.Information("Client {ConnectionId} stopped send loop", _id);
+            _logger.Verbose("Client {ConnectionId} stopped send loop", _id);
             
             await reader.CompleteAsync();
             
-            Disconnect();
+            Shutdown();
         }
     }
 
@@ -124,15 +130,21 @@ public abstract class WolfConnection : IDisposable
         }
         catch (Exception e)
         {
+            if (e is SocketException socketException && socketException.SocketErrorCode == SocketError.ConnectionReset)
+            {
+                _logger.Information("Client {ConnectionId} disconnected", _id);
+                return;
+            }
+            
             _logger.Error(e, "Error receiving data from client {ConnectionId}", _id);
         }
         finally
         {
-            _logger.Information("Client {ConnectionId} stopped receive loop", _id);
+            _logger.Verbose("Client {ConnectionId} stopped receive loop", _id);
 
             await _recvPipe.Writer.CompleteAsync();
             
-            Disconnect();
+            Shutdown();
         }
     }
 
@@ -149,6 +161,11 @@ public abstract class WolfConnection : IDisposable
 
                 try
                 {
+                    if (result.IsCanceled)
+                    {
+                        break;
+                    }
+                    
                     while (TryReadPacket(ref buffer, out var packet))
                     {
                         await ProcessPacketAsync(packet);
@@ -176,16 +193,22 @@ public abstract class WolfConnection : IDisposable
         }
         finally
         {
-            _logger.Information("Client {ConnectionId} stopped process loop", _id);
+            _logger.Verbose("Client {ConnectionId} stopped process loop", _id);
             
             await reader.CompleteAsync();
             
-            Disconnect();
+            Shutdown();
         }
     }
 
     protected async ValueTask WriteDataAsync(byte[] packet)
     {
+        if (_shutdown)
+        {
+            _logger.Warning("Client {ConnectionId} is already shutdown", _id);
+            return;
+        }
+        
         await _sendPipe.Writer.WriteAsync(packet);
         await _sendPipe.Writer.FlushAsync();
     }
@@ -215,23 +238,22 @@ public abstract class WolfConnection : IDisposable
         return true;
     }
 
-    private void Disconnect()
+    private void Shutdown()
     {
-        if (_client.Connected)
+        if (_shutdown)
         {
-            try
-            {
-                _client.Shutdown(SocketShutdown.Both);
-            }
-            catch (Exception)
-            {
-                // ignored
-            }
+            return;
         }
+
+        _shutdown = true;
+        _logger.Information("Client {ConnectionId} shutting down", _id);
+        
+        _sendPipe.Reader.CancelPendingRead();
+        _recvPipe.Reader.CancelPendingRead();
         
         try
         {
-            _client.Dispose();
+            _client.Shutdown(SocketShutdown.Both);
         }
         catch (Exception)
         {
@@ -246,14 +268,18 @@ public abstract class WolfConnection : IDisposable
             return;
         }
         
+        _disposed = true;
         _logger.Verbose("Disposing connection {ConnectionId}", _id);
         
-        _disposed = true;
-        _sendPipe.Writer.CancelPendingFlush();
-        _sendPipe.Reader.CancelPendingRead();
-        _recvPipe.Writer.CancelPendingFlush();
-        _recvPipe.Reader.CancelPendingRead();
+        Shutdown();
         
-        Disconnect();
+        try
+        {
+            _client.Dispose();
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
     }
 }
