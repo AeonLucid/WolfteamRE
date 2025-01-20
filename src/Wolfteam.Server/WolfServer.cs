@@ -3,11 +3,11 @@ using System.Net;
 using System.Net.Sockets;
 using Serilog;
 
-namespace Wolfteam.Server.Login;
+namespace Wolfteam.Server;
 
-public class WolfServer : IDisposable
+public class WolfServer<T> : IDisposable where T : WolfConnection
 {
-    private static readonly ILogger Logger = Log.ForContext<WolfServer>();
+    private static readonly ILogger Logger = Log.ForContext("SourceContext", "WolfServer");
     
     private readonly int _port;
     private readonly Socket _socket;
@@ -34,7 +34,7 @@ public class WolfServer : IDisposable
     {
         var client = await _socket.AcceptAsync(cancellationToken);
         var clientId = Guid.NewGuid();
-        var connection = new WolfConnection(clientId, client);
+        var connection = (WolfConnection) Activator.CreateInstance(typeof(T), clientId, client)!;
 
         if (!_connections.TryAdd(clientId, connection))
         {

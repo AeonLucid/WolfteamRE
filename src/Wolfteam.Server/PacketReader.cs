@@ -1,6 +1,6 @@
 ﻿using System.Buffers;
 
-namespace Wolfteam.Server.Login;
+namespace Wolfteam.Server;
 
 public ref struct PacketReader
 {

@@ -1,8 +1,10 @@
-﻿using Serilog.Templates.Themes;
+﻿using Serilog;
+using Serilog.Templates;
+using Serilog.Templates.Themes;
 
-namespace Wolfteam.Server.Login.Utils;
+namespace Wolfteam.Server.Utils;
 
-public static class SerilogTheme
+public static class SerilogConfig
 {
     public static TemplateTheme Theme { get; } = new(new Dictionary<TemplateThemeStyle, string>
     {
@@ -23,4 +25,14 @@ public static class SerilogTheme
         [TemplateThemeStyle.LevelError] = "\u001b[38;5;0015m\u001b[48;5;0196m",
         [TemplateThemeStyle.LevelFatal] = "\u001b[38;5;0015m\u001b[48;5;0196m",
     });
+
+    public static LoggerConfiguration CreateDefault()
+    {
+        return new LoggerConfiguration()
+            .MinimumLevel.Verbose()
+            .WriteTo.Console(
+                formatter: new ExpressionTemplate("[{@t:HH:mm:ss} {@l:u3} {Substring(SourceContext, LastIndexOf(SourceContext, '.') + 1),-20}] {@m}\n{@x}",
+                    theme: SerilogConfig.Theme))
+            .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day);
+    }
 }

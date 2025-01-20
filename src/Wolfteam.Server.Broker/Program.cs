@@ -1,6 +1,6 @@
 ﻿using Serilog;
 using Wolfteam.Server;
-using Wolfteam.Server.Login;
+using Wolfteam.Server.Broker;
 using Wolfteam.Server.Utils;
 
 // Setup.
@@ -16,7 +16,7 @@ Console.CancelKeyPress += (_, args) =>
     cancelTokenSource.Cancel();
 };
 
-using var server = new WolfServer<LoginConnection>(8444);
+using var server = new WolfServer<BrokerConnection>(40706);
 
 server.Listen();
 

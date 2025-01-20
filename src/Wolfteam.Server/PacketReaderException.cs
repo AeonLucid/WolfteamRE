@@ -1,4 +1,4 @@
-﻿namespace Wolfteam.Server.Login;
+﻿namespace Wolfteam.Server;
 
 public class PacketReaderException : Exception
 {
