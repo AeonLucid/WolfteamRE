@@ -72,6 +72,8 @@ public abstract class WolfConnection : IDisposable
                     
                     while (current.Length > 0)
                     {
+                        _logger.Debug("Sending data to client {ConnectionId}: {Data}", _id, Convert.ToHexStringLower(current.First.Span));
+                        
                         var bytes = await _client.SendAsync(current.First);
                         if (bytes == 0)
                         {
@@ -204,7 +206,7 @@ public abstract class WolfConnection : IDisposable
         }
     }
 
-    protected async ValueTask WriteDataAsync(byte[] packet)
+    protected async ValueTask WriteDataAsync(ReadOnlyMemory<byte> packet)
     {
         if (_shutdown)
         {
@@ -213,7 +215,6 @@ public abstract class WolfConnection : IDisposable
         }
         
         await _sendPipe.Writer.WriteAsync(packet);
-        await _sendPipe.Writer.FlushAsync();
     }
 
     protected abstract ValueTask ProcessPacketAsync(ReadOnlySequence<byte> packet);

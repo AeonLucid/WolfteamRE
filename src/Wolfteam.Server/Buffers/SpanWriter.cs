@@ -4,6 +4,7 @@
 
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Wolfteam.Server.Buffers;
 
@@ -55,10 +56,17 @@ public ref struct SpanWriter
         Advance(2);
     }
     
-    public void WriteU16(ushort value)
+    public void WriteU16(ushort value, bool bigEndian = false)
     {
         CheckBounds(2);
-        BinaryPrimitives.WriteUInt16LittleEndian(_data.Slice(Position), value);
+        if (bigEndian)
+        {
+            BinaryPrimitives.WriteUInt16BigEndian(_data.Slice(Position), value);
+        }
+        else
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(_data.Slice(Position), value);
+        }
         Advance(2);
     }
     
@@ -98,5 +106,21 @@ public ref struct SpanWriter
         
         bytes.CopyTo(_data.Slice(Position));
         Advance(bytes.Length);
+    }
+    
+    public void WriteString(Encoding encoding, string value)
+    {
+        var byteCount = encoding.GetByteCount(value);
+        if (byteCount > byte.MaxValue)
+        {
+            throw new InvalidOperationException("String is too long to write.");
+        }
+        
+        Span<byte> bytes = stackalloc byte[byteCount];
+        
+        encoding.GetBytes(value, bytes);
+        
+        WriteU8((byte)bytes.Length);
+        WriteBytes(bytes);
     }
 }

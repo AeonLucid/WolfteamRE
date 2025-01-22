@@ -13,11 +13,11 @@ public class CS_CK_ALIVE_REQ : IWolfPacket
         return 0;
     }
 
-    public void Serialize(SpanWriter writer)
+    public void Serialize(ref SpanWriter writer)
     {
     }
 
-    public bool Deserialize(SpanReader reader)
+    public bool Deserialize(ref SpanReader reader)
     {
         return true;
     }

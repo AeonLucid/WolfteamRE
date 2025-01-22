@@ -77,10 +77,10 @@ public class LoginConnection : WolfConnection
                 // - 0x91 = Uncertified ID
                 // - 0x95 = Can't connect due to too many users
                 
-                await WriteDataAsync([
+                await WriteDataAsync(new byte[] {
                     0x08, 0x00, 0x00, 0x00,
                     0x12, 0x13, 0x00, 0x00
-                ]);
+                });
                 break;
             }
             case 0x1320:
@@ -109,17 +109,17 @@ public class LoginConnection : WolfConnection
                 // ]);
                 
                 // Start game
-                await WriteDataAsync([
+                await WriteDataAsync(new byte[] {
                     0x08, 0x00, 0x00, 0x00,
                     0x01, 0x40, 0x01, 0x90,
-                ]);
+                });
                 
                 // Specify third launch parameter.
-                // await WriteDataAsync([
+                // await WriteDataAsync(new byte[] {
                 //     0x0C, 0x00, 0x00, 0x00,
                 //     0x01, 0x40, 0x01, 0x90,
                 //     0x05, 0x00, 0x00, 0x00,
-                // ]);
+                // });
                 break;
             }
             default:

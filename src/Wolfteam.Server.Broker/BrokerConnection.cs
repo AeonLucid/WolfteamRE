@@ -5,9 +5,10 @@
 using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
-using System.Security.Cryptography;
 using Serilog;
+using Wolfteam.Server.Buffers;
 using Wolfteam.Server.Packets;
+using Wolfteam.Server.Packets.Broker;
 
 namespace Wolfteam.Server.Broker;
 
@@ -19,21 +20,125 @@ public class BrokerConnection : WolfConnection
     {
     }
 
-    protected override ValueTask ProcessPacketAsync(ReadOnlySequence<byte> buffer)
+    private async ValueTask SendPacketAsync(short id, short sequence, IWolfPacket packet)
+    {
+        // Calculate sizes.
+        var payloadSizeExtra = 1; // ErrorCode (??)
+        var payloadSize = packet.CalculateSize() + payloadSizeExtra;
+        var payloadSizeEnc = payloadSize == 0 ? 0 : (payloadSize + 15) & ~15;
+        var packetSize = PacketHeader.Size + payloadSizeEnc;
+        
+        // Rent buffer.
+        using var packetBuffer = MemoryPool<byte>.Shared.Rent(packetSize);
+        
+        var buffer = packetBuffer.Memory.Span.Slice(0, packetSize);
+        
+        // Create header.
+        var header = new PacketHeader
+        {
+            Random = (byte)Random.Shared.Next(0, byte.MaxValue),
+            Id = id,
+            Sequence = sequence,
+            Blocks = (short)(payloadSizeEnc >> 4),
+            Checksum = 0
+        };
+        
+        // Write header.
+        header.Serialize(buffer);
+        
+        // Write payload.
+        var payloadWriter = new SpanWriter(buffer.Slice(PacketHeader.Size, payloadSize));
+        
+        // - error code
+        payloadWriter.WriteU8(0);
+        
+        // - actual payload
+        packet.Serialize(ref payloadWriter);
+        
+        // Zero out remaining payload bytes.
+        var payloadRemaining = payloadSizeEnc - payloadSize;
+        if (payloadRemaining > 0)
+        {
+            buffer.Slice(PacketHeader.Size + payloadSize, payloadRemaining).Clear();
+        }
+    
+        // Encrypt header.
+        Span<byte> key = stackalloc byte[16];
+        
+        if (!PacketCrypto.TryEncryptHeader(buffer.Slice(0, PacketHeader.Size), key))
+        {
+            Logger.Warning("Failed to encrypt packet header");
+            return;
+        }
+    
+        if (!PacketCrypto.TryEncryptPayload(key, buffer.Slice(PacketHeader.Size)))
+        {
+            Logger.Warning("Failed to encrypt packet payload");
+            return;
+        }
+        
+        // Send packet.
+        await WriteDataAsync(packetBuffer.Memory.Slice(0, packetSize));
+    }
+
+    protected override async ValueTask ProcessPacketAsync(ReadOnlySequence<byte> buffer)
     {
         Logger.Debug("Processing packet {Packet}", Convert.ToHexStringLower(buffer.ToArray()));
 
         if (!TryParsePacket(buffer, out var header, out var packet))
         {
             Logger.Warning("Failed to parse packet");
-            return ValueTask.CompletedTask;
+            return;
         }
         
         Logger.Debug("Id       {PacketId}", header.Id);
         Logger.Debug("Sequence {Sequence}", header.Sequence);
         Logger.Debug("Payload  {@Payload}", packet);
-        
-        return ValueTask.CompletedTask;
+
+        if (packet is CS_BR_CHAINLIST_REQ)
+        {
+            await SendPacketAsync(0x1103, header.Sequence, new CS_BR_CHAINLIST_ACK
+            {
+                Chainlist =
+                [
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14,
+                    14
+                ]
+            });
+        } 
+        else if (packet is CS_BR_WORLDLIST_REQ)
+        {
+            await SendPacketAsync(0x1101, header.Sequence, new CS_BR_WORLDLIST_ACK
+            {
+
+            });
+        }
+        else if (packet is CS_BR_WORLDINFO_REQ)
+        {
+            await SendPacketAsync(0x1107, header.Sequence, new CS_BR_WORLDINFO_ACK
+            {
+
+            });
+        }
+        else if (packet is CS_BR_RELAYLIST_REQ)
+        {
+            await SendPacketAsync(0x1105, header.Sequence, new CS_BR_RELAYLIST_ACK
+            {
+                
+            });
+        }
     }
 
     /// <summary>
@@ -92,7 +197,7 @@ public class BrokerConnection : WolfConnection
     /// <summary>
     ///     Parses the header of an encrypted packet.
     /// </summary>
-    private bool TryParseHeader(ref ReadOnlySequence<byte> buffer, Span<byte> key, out PacketHeader header)
+    private static bool TryParseHeader(ref ReadOnlySequence<byte> buffer, Span<byte> key, out PacketHeader header)
     {
         Span<byte> plain = stackalloc byte[8];
         
@@ -113,7 +218,7 @@ public class BrokerConnection : WolfConnection
         }
         
         // Parse the header.
-        header = PacketCrypto.ReadHeader(plain);
+        header = PacketHeader.Deserialize(plain);
         return true;
     }
 

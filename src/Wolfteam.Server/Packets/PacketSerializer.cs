@@ -19,8 +19,10 @@ public static class PacketSerializer
         // In the future, we should use a more efficient method than a switch.
         packet = header.Id switch
         {
-            0x1102 => new CS_BR_CHAINLIST_REQ(),
             0x1100 => new CS_BR_WORLDLIST_REQ(),
+            0x1102 => new CS_BR_CHAINLIST_REQ(),
+            0x1104 => new CS_BR_RELAYLIST_REQ(),
+            0x1106 => new CS_BR_WORLDINFO_REQ(),
             0x1202 => new CS_CK_ALIVE_REQ(),
             0x1312 => new CS_CH_DISCONNECT_REQ(),
             _ => null
@@ -33,6 +35,7 @@ public static class PacketSerializer
             return false;
         }
 
-        return packet.Deserialize(new SpanReader(payload));
+        var reader = new SpanReader(payload);
+        return packet.Deserialize(ref reader);
     }
 }

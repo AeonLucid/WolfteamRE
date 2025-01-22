@@ -9,7 +9,7 @@ public class PacketCryptoTests
     [Test]
     public void DecryptPacket()
     {
-        var packet = Convert.FromHexString("66b732a7223762ee5c086db87a2c54bd4e6dc92ee96c7d3d").AsSpan();
+        var packet = Convert.FromHexString("caee6cc216145f062f8401eae205c7ec159221d2cc99983a").AsSpan();
         var key = new byte[16];
 
         if (!PacketCrypto.TryDecryptHeader(packet.Slice(0, 8), key))
@@ -24,7 +24,7 @@ public class PacketCryptoTests
             return;
         }
 
-        var header = PacketCrypto.ReadHeader(packet.Slice(0, 8));
+        var header = PacketHeader.Deserialize(packet);
         var payload = packet.Slice(8);
         
         // Full packet.
@@ -39,5 +39,51 @@ public class PacketCryptoTests
             Assert.That(header.Blocks, Is.EqualTo(0x0001), "Blocks is incorrect.");
             Assert.That(header.Checksum, Is.EqualTo(0xcc), "Checksum is incorrect.");
         });
+    }
+    
+    [Test]
+    public void EncryptPacket()
+    {
+        Span<byte> packet = stackalloc byte[24];
+        
+        var key = new byte[16];
+        var header = new PacketHeader
+        {
+            Random = 0xb8,
+            Id = 0x1102,
+            Sequence = 0x0000,
+            Blocks = 0x0001,
+            Checksum = 0x00
+        };
+        
+        // Write header to packet.
+        header.Serialize(packet);
+        
+        // Header.
+        Assert.That(Convert.ToHexStringLower(packet.Slice(0, 8)), Is.EqualTo("b8021100000100cc"), "Header serialized incorrectly.");
+        
+        // Write payload.
+        packet[8] = 0x03;
+        packet[9] = 0x61;
+        packet[10] = 0x62;
+        packet[11] = 0x63;
+        
+        if (!PacketCrypto.TryEncryptHeader(packet.Slice(0, 8), key))
+        {
+            Assert.Fail("Failed to encrypt header.");
+            return;
+        }
+        
+        if (!PacketCrypto.TryEncryptPayload(key, packet.Slice(8)))
+        {
+            Assert.Fail("Failed to encrypt payload.");
+            return;
+        }
+        
+        // Header.
+        Assert.That(Convert.ToHexStringLower(packet.Slice(0, 8)), Is.EqualTo("66b732a7223762ee"), "Header encrypted incorrectly.");
+        
+        // Payload.
+        Assert.That(Convert.ToHexStringLower(packet.Slice(8)), Is.EqualTo("5c086db87a2c54bd4e6dc92ee96c7d3d"), "Payload encrypted incorrectly.");
     }
 }

@@ -2,6 +2,7 @@
 // Licensed under the AGPL-3.0 License.
 // Solution Wolfteam, Date 2025-01-22.
 
+using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -37,6 +38,19 @@ public ref struct SpanReader
 
         value = _data[0];
         Advance(1);
+        return true;
+    }
+
+    public bool TryReadU16(out ushort value)
+    {
+        if (_data.Length < 2)
+        {
+            value = 0;
+            return false;
+        }
+
+        value = BinaryPrimitives.ReadUInt16LittleEndian(_data);
+        Advance(2);
         return true;
     }
 

@@ -1,17 +1,23 @@
 const baseAddress = Module.getBaseAddress('WolfTeam.exe');
 const idaBases: any = {
-    'Wolfteam.exe': '0x400000'
+    'Wolfteam.exe': '0x400000', 
+    'cshell.dll': '0x793A0000',
 };
 
 function threadBacktraceMapper(ptr: NativePointer) {
     const module = Process.findModuleByAddress(ptr);
     if (module !== null) {
-        const idaBase = idaBases[module.name];
-        if (idaBase !== undefined) {
-            return `${module.name}!${ptr.sub(module.base).add(idaBase)} [ida]`;
+        let modName = module.name;
+        if (modName.startsWith('csh')) {
+            modName = 'cshell.dll';
         }
 
-        return `${module.name}!${ptr.sub(module.base)}`;
+        const idaBase = idaBases[modName];
+        if (idaBase !== undefined) {
+            return `${modName}!${ptr.sub(module.base).add(idaBase)} [ida]`;
+        }
+
+        return `${modName}!${ptr.sub(module.base)}`;
     }
 
     return DebugSymbol.fromAddress(ptr);
@@ -73,7 +79,7 @@ function hookGeneric() {
             const namelen = args[2].toInt32();
     
             console.log(`:: connect(s: ${s}, name: ${name}, namelen: ${namelen})`);
-            // console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(DebugSymbol.fromAddress).join('\n'));
+            console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(threadBacktraceMapper).join('\n'));
         },
         onLeave: function (retval) {
             console.log(`:: connect returned ${retval}`);
@@ -292,6 +298,11 @@ function loadedClientShell(fileName: string) {
             // console.log(`:: GetStringFromStringTable(stringId: ${stringId})`);
 
             this.stringId = stringId;
+
+            if (stringId === 260 || stringId === 265  || stringId == 4260) {
+                console.log(`:: GetStringFromStringTable(stringId: ${stringId})`);
+                console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(threadBacktraceMapper).join('\n'));
+            }
         },
         onLeave: function (retval) {
             if (this.stringId === 1904) {
@@ -392,6 +403,29 @@ function loadedClientShell(fileName: string) {
 
             console.log(`:: SetupAes(key: ${key}, keySize: ${keySize}, id: ${id}, ctx: ${ctx})`);
             console.log(hexdump(key, { length: keySize }));
+        }
+    });
+
+    Interceptor.attach(clientShellAddress('0x795E8EA0'), {
+        onEnter: function (args) {
+            console.log(`:: 0x795234E0(ptr: ${args[0]}, ptr: ${args[1]})`);
+        },
+        onLeave: function (retval) {
+            console.log(`:: 0x795234E0 returned ${retval}`);
+        }
+    })
+
+    // Hook handle_CS_BR_CHAINLIST_ACK 7942CFF0(ptr, ptr)
+    Interceptor.attach(clientShellAddress('0x7942CFF0'), {
+        onEnter: function (args) {
+            const packetData = args[0];
+            const packetDataLen = packetData.add(0x2000).readU32();
+            const packetDataPos = packetData.add(0x2004).readU32();
+
+            console.log('==============================================================================');
+            console.log(`:: handle_CS_BR_CHAINLIST_ACK(packetData: ${packetData}, packetDataLen: ${packetDataLen}, packetDataPos: ${packetDataPos})`);
+            console.log(hexdump(packetData, { length: packetDataLen }));
+            console.log('==============================================================================');
         }
     });
 
@@ -521,9 +555,23 @@ function loadedClientShell(fileName: string) {
             console.log(`:: BlowfishKey(${args[1].readCString()})`);
         }
     });
-}
 
-// CS_BR_CHAINLIST_REQ
+    // Interceptor.attach(clientShellAddress('0x7942D6C6'), {
+    //     onEnter: function (args) {
+    //         console.log(`:: Setting ip/port?!`);
+    //     }
+    // });
+
+    Interceptor.attach(clientShellAddress('0x79527B10'), {
+        onEnter: function (args) {
+            const uk0 = args[0];
+            const uk1 = args[1];
+
+            console.log(`:: 0x79527B10(uk0: ${uk0}, uk1: ${uk1})`);
+            console.log(hexdump(uk0));
+        }
+    });
+}
 
 function main() {
     if (started) {

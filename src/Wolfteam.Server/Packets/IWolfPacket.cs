@@ -9,6 +9,6 @@ namespace Wolfteam.Server.Packets;
 public interface IWolfPacket
 {
     int CalculateSize();
-    void Serialize(SpanWriter writer);
-    bool Deserialize(SpanReader reader);
+    void Serialize(ref SpanWriter writer);
+    bool Deserialize(ref SpanReader reader);
 }

@@ -15,12 +15,12 @@ public class CS_CH_DISCONNECT_REQ : IWolfPacket
         throw new NotImplementedException();
     }
 
-    public void Serialize(SpanWriter writer)
+    public void Serialize(ref SpanWriter writer)
     {
         throw new NotImplementedException();
     }
 
-    public bool Deserialize(SpanReader reader)
+    public bool Deserialize(ref SpanReader reader)
     {
         if (!reader.TryReadBytes(0x100, out var unknown))
         {

@@ -6,7 +6,7 @@ using Wolfteam.Server.Buffers;
 
 namespace Wolfteam.Server.Packets.Broker;
 
-public class CS_BR_WORLDLIST_REQ : IWolfPacket
+public class CS_BR_RELAYLIST_REQ : IWolfPacket
 {
     public int CalculateSize()
     {
