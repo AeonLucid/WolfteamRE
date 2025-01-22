@@ -17,7 +17,7 @@ public class BrokerConnection : WolfConnection
     
     public BrokerConnection(Guid id, Socket client) : base(Logger, id, client)
     {
-    }// BA 02 12 00 00
+    }
 
     protected override ValueTask ProcessPacketAsync(ReadOnlySequence<byte> buffer)
     {
@@ -70,12 +70,7 @@ public class BrokerConnection : WolfConnection
         {
             buffer.Slice(8, lenPayload).CopyTo(payload);
 
-            // Decrypt payload.
-            using var aes = Aes.Create();
-            
-            aes.Key = packetKey.ToArray();
-            
-            if (!aes.TryDecryptEcb(payload, payload, PaddingMode.None, out var written) || written != lenPayload)
+            if (!PacketCrypto.TryDecryptPayload(packetKey, payload))
             {
                 Logger.Warning("Failed to decrypt packet payload");
                 packet = null;

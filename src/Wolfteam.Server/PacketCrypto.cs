@@ -3,6 +3,7 @@
 // Solution Wolfteam, Date 2025-01-21.
 
 using System.Buffers.Binary;
+using System.Security.Cryptography;
 using Wolfteam.Server.Crypto;
 
 namespace Wolfteam.Server;
@@ -52,6 +53,16 @@ public static class PacketCrypto
         }
         
         return checksumOur == checksumPacket;
+    }
+
+    public static bool TryDecryptPayload(ReadOnlySpan<byte> key, Span<byte> payload)
+    {
+        using var aes = Aes.Create();
+            
+        aes.Key = key.ToArray();
+
+        return aes.TryDecryptEcb(payload, payload, PaddingMode.None, out var written) || 
+               written != payload.Length;
     }
 
     public static PacketHeader ReadHeader(ReadOnlySpan<byte> header)
