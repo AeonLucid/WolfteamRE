@@ -1,4 +1,8 @@
-﻿using Serilog;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-21.
+
+using Serilog;
 using Wolfteam.Server;
 using Wolfteam.Server.Login;
 using Wolfteam.Server.Utils;

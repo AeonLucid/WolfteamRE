@@ -1,4 +1,8 @@
-﻿using System.Buffers.Binary;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-21.
+
+using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 

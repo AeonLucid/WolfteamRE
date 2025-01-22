@@ -1,4 +1,8 @@
-﻿using System.Buffers;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-21.
+
+using System.Buffers;
 using System.IO.Pipelines;
 using System.Net.Sockets;
 using Serilog;
@@ -177,7 +181,6 @@ public abstract class WolfConnection : IDisposable
                         {
                             throw new InvalidDataException("Incomplete message.");
                         }
-                        
                         break;
                     }
                 }
@@ -214,29 +217,8 @@ public abstract class WolfConnection : IDisposable
     }
 
     protected abstract ValueTask ProcessPacketAsync(ReadOnlySequence<byte> packet);
-    
-    private static bool TryReadPacket(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> packet)
-    {
-        var reader = new SequenceReader<byte>(buffer);
-        
-        if (!reader.TryReadLittleEndian(out int packetLen))
-        {
-            packet = default;
-            return false;
-        }
-        
-        // Check if buffer has enough data.
-        // The packet length includes the length itself.
-        if (buffer.Length < packetLen)
-        {
-            packet = default;
-            return false;
-        }
 
-        packet = buffer.Slice(buffer.Start, packetLen);
-        buffer = buffer.Slice(packet.End);
-        return true;
-    }
+    protected abstract bool TryReadPacket(ref ReadOnlySequence<byte> buffer, out ReadOnlySequence<byte> packet);
 
     private void Shutdown()
     {

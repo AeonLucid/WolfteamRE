@@ -1,4 +1,9 @@
-﻿using Serilog;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-21.
+
+using Serilog;
+using Serilog.Events;
 using Wolfteam.Server;
 using Wolfteam.Server.Broker;
 using Wolfteam.Server.Utils;
@@ -8,7 +13,9 @@ var cancelTokenSource = new CancellationTokenSource();
 var cancelToken = cancelTokenSource.Token;
 
 // Logging.
-Log.Logger = SerilogConfig.CreateDefault().CreateLogger();
+Log.Logger = SerilogConfig.CreateDefault()
+    .MinimumLevel.Override(typeof(BrokerConnection).FullName!, LogEventLevel.Debug)
+    .CreateLogger();
 
 Console.CancelKeyPress += (_, args) =>
 {

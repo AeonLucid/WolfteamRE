@@ -1,4 +1,8 @@
-﻿using System.Collections.Concurrent;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-21.
+
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using Serilog;

@@ -1,4 +1,21 @@
 const baseAddress = Module.getBaseAddress('WolfTeam.exe');
+const idaBases: any = {
+    'Wolfteam.exe': '0x400000'
+};
+
+function threadBacktraceMapper(ptr: NativePointer) {
+    const module = Process.findModuleByAddress(ptr);
+    if (module !== null) {
+        const idaBase = idaBases[module.name];
+        if (idaBase !== undefined) {
+            return `${module.name}!${ptr.sub(module.base).add(idaBase)} [ida]`;
+        }
+
+        return `${module.name}!${ptr.sub(module.base)}`;
+    }
+
+    return DebugSymbol.fromAddress(ptr);
+}
 
 function hookGeneric() {
     // Hook ClipCursor
@@ -72,7 +89,7 @@ function hookGeneric() {
             const flags = args[3].toInt32();
     
             console.log(`:: send(s: ${s}, buf: ${buf}, len: ${len}, flags: ${flags})`);
-            // console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(DebugSymbol.fromAddress).join('\n'));
+            console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(threadBacktraceMapper).join('\n'));
         },
         onLeave: function (retval) {
             console.log(`:: send returned ${retval}`);
@@ -98,20 +115,20 @@ function hookGeneric() {
     });
     
     // Hook ws32 recv
-    Interceptor.attach(Module.findExportByName('ws2_32.dll', 'recv')!, {
-        onEnter: function (args) {
-            const s = args[0].toInt32();
-            const buf = args[1];
-            const len = args[2].toInt32();
-            const flags = args[3].toInt32();
+    // Interceptor.attach(Module.findExportByName('ws2_32.dll', 'recv')!, {
+    //     onEnter: function (args) {
+    //         const s = args[0].toInt32();
+    //         const buf = args[1];
+    //         const len = args[2].toInt32();
+    //         const flags = args[3].toInt32();
     
-            console.log(`:: recv(s: ${s}, buf: ${buf}, len: ${len}, flags: ${flags})`);
-            // console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(DebugSymbol.fromAddress).join('\n'));
-        },
-        onLeave: function (retval) {
-            console.log(`:: recv returned ${retval}`);
-        }
-    });
+    //         console.log(`:: recv(s: ${s}, buf: ${buf}, len: ${len}, flags: ${flags})`);
+    //         // console.log(Thread.backtrace(this.context, Backtracer.ACCURATE).map(DebugSymbol.fromAddress).join('\n'));
+    //     },
+    //     onLeave: function (retval) {
+    //         console.log(`:: recv returned ${retval}`);
+    //     }
+    // });
 
     // Hook LoadLibraryA
     // Interceptor.attach(Module.findExportByName('kernel32.dll', 'LoadLibraryA')!, {
@@ -207,7 +224,9 @@ let started = false;
 
 function loadedClientShell(fileName: string) { 
     const clientShellBase = Module.findBaseAddress(fileName)!;
-    const clientShellAddress = (idaOffset: string) => clientShellBase.add(ptr(idaOffset).sub(ptr('0x793A0000')));
+    const clientShellBaseEnd = clientShellBase.add(Process.findModuleByName(fileName)!.size);
+    const clientShellBaseIda = ptr('0x793A0000');
+    const clientShellAddress = (idaOffset: string) => clientShellBase.add(ptr(idaOffset).sub(clientShellBaseIda));
 
     console.log(`:: Loaded ClientShell: ${fileName} at ${clientShellBase}`);
 
@@ -281,17 +300,230 @@ function loadedClientShell(fileName: string) {
             }
         }
     });
-}
 
-function waitForUnpack() {
-    // const intervalHandle = setInterval(() => {
-    //     if (ptr(0x43DF10).readU8() === 0x6A) {
-    //         clearInterval(intervalHandle);
+    // Hook log 0x793FA2D0
+    Interceptor.attach(clientShellAddress('0x793FA2D0'), {
+        onEnter: function (args) {
+            const msg = args[1].readUtf8String();
 
-    //         main();
+            console.log(`:: log(msg: ${msg})`);
+        }
+    });
+
+    // Hook 0x7942E970
+    // Interceptor.attach(clientShellAddress('0x7942E970'), {
+    //     onEnter: function (args) {
+    //         const context = this.context as Ia32CpuContext;
+
+    //         console.log(`:: eax eax eax eax eax ${context.eax.sub(clientShellBase).add(clientShellBaseIda)}`);
     //     }
-    // }, 100);
+    // });
+
+    // Hook 0x794CF420(ptr, ptr)
+    Interceptor.attach(clientShellAddress('0x794CF420'), {
+        onEnter: function (args) {
+            console.log(`:: 0x794CF420(ptr: ${args[0]}, ptr: ${args[1]}, ptr: ${args[2]})`);
+            console.log(hexdump(args[0], { length: 32 }));
+            // console.log(hexdump(args[1], { length: 0x16 }));
+        }
+    });
+
+    // Hook EncryptPacket(ptr, ptr)
+    Interceptor.attach(clientShellAddress('0x794CD0A0'), {
+        onEnter: function (args) {
+            const context = this.context as Ia32CpuContext;
+            const packetData = context.ecx;
+            const packetDataLen = packetData.add(0x2000).readU32();
+            const packetSeq = args[0].toInt32();
+
+            console.log('==============================================================================');
+            console.log(`:: EncryptPacket(packetData: ${packetData}, packetDataLen: ${packetDataLen}, ${packetSeq})`);
+            console.log(hexdump(packetData, { length: packetDataLen }));
+
+            this.packetData = packetData;
+        },
+        onLeave: function (retval) {
+            const packetData = this.packetData;
+            const packetDataLen = packetData.add(0x2000).readU32();
+
+            console.log(`:: EncryptPacket result, packetLen: ${packetDataLen}`);
+            console.log(hexdump(packetData, { length: packetDataLen }));
+            console.log('==============================================================================');
+        }
+    });
+
+    // Hook EncryptPacketAes(ptr, ptr)
+    Interceptor.attach(clientShellAddress('0x795DA200'), {
+        onEnter: function (args) {
+            const uk0 = args[0];
+            const uk1 = args[1];
+
+            this.uk0 = uk0;
+
+            console.log(`:: aes_stuff(uk0: ${uk0}, uk1: ${uk1})`);
+            console.log(hexdump(uk0.sub(8), { length: 0x10 }));
+            // console.log(hexdump(uk1, { length: 0x10 }));
+        },
+        // onLeave: function (retval) {
+        //     console.log(`:: EncryptPacketAes returned ${retval}`);
+        //     console.log(hexdump(this.uk0, { length: 0x10 }));
+        // }
+    });
+
+    // Hook 0x794CC780(ptr, ptr, ptr)
+    Interceptor.attach(clientShellAddress('0x794CC780'), {
+        onEnter: function (args) {
+            // fastcall
+            const unknown = args[2];
+            const packetData = args[0];
+            const packetLen = args[1].toInt32();
+
+            console.log(`:: 0x794CC780(unknown: ${unknown}, packetData: ${packetData}, packetLen: ${packetLen})`);
+        }
+    });
+
+    // Hook SetupAes(key, keySize, id, ctx)
+    Interceptor.attach(clientShellAddress('0x796926D0'), {
+        onEnter: function (args) {
+            const key = args[0];
+            const keySize = args[1].toInt32();
+            const id = args[2].toInt32();
+            const ctx = args[3];
+
+            console.log(`:: SetupAes(key: ${key}, keySize: ${keySize}, id: ${id}, ctx: ${ctx})`);
+            console.log(hexdump(key, { length: keySize }));
+        }
+    });
+
+    // Hook BlowfishEncrypt(ptr, ptr, ptr)
+    Interceptor.attach(clientShellAddress('0x79522240'), {
+        onEnter: function (args) {
+            const context = this.context as Ia32CpuContext;
+            const blowfishCtx = context.ecx;
+            const blowfishBox = args[0].toInt32();
+            const packetData = args[1];
+            const packetDataLen = packetData.add(0x2000).readU32();
+
+            console.log(`:: BlowfishEncrypt(blowfishCtx: ${blowfishCtx}, blowfishBox: ${blowfishBox}, packetData: ${packetData})`);
+            console.log(hexdump(packetData, { length: packetDataLen }));
+
+            Stalker.follow(this.threadId, {
+                transform: function (iterator: StalkerX86Iterator) {
+                    let inst = iterator.next();
+                    if (inst == null) {
+                        return;
+                    }
+                
+                    do {
+                        let instruction = inst as X86Instruction;
+                        let instAddr = instruction.address;
+                
+                        // const appAddress = instruction.address;
+                        // const appCode = appAddress.compare(clientShellBase) >= 0 && appAddress.compare(clientShellBaseEnd) === -1;
+                
+                        // if (!appCode) {
+                        //     iterator.keep();
+                        //     continue;
+                        // }
+                
+                        // Log.
+                        if (instAddr.equals(clientShellAddress('0x79668232'))) {
+                            iterator.putCallout(function (ctx: CpuContext) {
+                                let context = ctx as Ia32CpuContext;
+                                let value = context.eax.add(context.esi.toInt32() * 4).readU32();
+
+                                console.log("[Found value 1]", value.toString(16));
+                            });
+                        }
+
+                        if (instAddr.equals(clientShellAddress('0x79668270'))) {
+                            iterator.putCallout(function (ctx: CpuContext) {
+                                let context = ctx as Ia32CpuContext;
+                                let value = context.edi.add(context.esi.toInt32() * 4).add(4).readU32();
+
+                                console.log("[Found value 2]", value.toString(16));
+                            });
+                        }
+
+                        if (instAddr.equals(clientShellAddress('0x796685D7'))) {
+                            iterator.putCallout(function (ctx: CpuContext) {
+                                let context = ctx as Ia32CpuContext;
+
+                                console.log("[Found value 1]", context.edx.toString(16));
+                                console.log("[Found value 2]", context.edi.toString(16));
+                            });
+                        }
+
+                        if (instAddr.equals(clientShellAddress('0x796685C1'))) {
+                            iterator.putCallout(function (ctx: CpuContext) {
+                                let context = ctx as Ia32CpuContext;
+                                let value = context.ecx.add(0x44).readU32();
+
+                                console.log("[Found this->PBox[17]]", value);
+                            });
+                        }
+                
+                        // Continue.
+                        iterator.keep();
+                    } while ((inst = iterator.next()) !== null);
+                },
+            });
+        },
+        onLeave: function (retval) {
+            console.log(`:: BlowfishEncrypt returned ${retval}`);
+
+            Stalker.unfollow(this.threadId);
+        }
+    });
+
+    // Dump blowfish tables
+    // Interceptor.attach(clientShellAddress('0x79668210'), {
+    //     onEnter: function (args) {
+    //         const context = this.context as Ia32CpuContext;
+    //         const blowfishEntry = context.ecx;
+
+    //         const PBox = [];
+    //         const SBox = [];
+    //         const SBox2 = [];
+    //         const SBox3 = [];
+    //         const SBox4 = [];
+
+    //         for (let i = 0; i < 18; i++) {
+    //             PBox.push('0x' + blowfishEntry.add(i * 4).readU32().toString(16));
+    //         }
+
+    //         for (let i = 0; i < 256; i++) {
+    //             SBox.push('0x' + blowfishEntry.add(0x48).add(i * 4).readU32().toString(16));
+    //         }
+
+    //         for (let i = 0; i < 256; i++) {
+    //             SBox2.push('0x' + blowfishEntry.add(0x448).add(i * 4).readU32().toString(16));
+    //         }
+
+    //         for (let i = 0; i < 256; i++) {
+    //             SBox3.push('0x' + blowfishEntry.add(0x848).add(i * 4).readU32().toString(16));
+    //         }
+
+    //         for (let i = 0; i < 256; i++) {
+    //             SBox4.push('0x' + blowfishEntry.add(0xC48).add(i * 4).readU32().toString(16));
+    //         }
+
+    //         console.log(`:: BlowfishEncryptEntry PBox: ${PBox}`);
+    //         console.log(`:: BlowfishEncryptEntry SBox: ${SBox}`);
+    //         console.log(`:: BlowfishEncryptEntry SBox2: ${SBox2}`);
+    //         console.log(`:: BlowfishEncryptEntry SBox3: ${SBox3}`);
+    //         console.log(`:: BlowfishEncryptEntry SBox4: ${SBox4}`);
+    //     }
+    // });
+
+    Interceptor.attach(clientShellAddress('0x79522220'), {
+        onEnter: function (args) {
+            console.log(`:: BlowfishKey(${args[1].readCString()})`);
+        }
+    });
 }
+
+// CS_BR_CHAINLIST_REQ
 
 function main() {
     if (started) {
@@ -306,5 +538,4 @@ function main() {
 
 console.log('BaseAddress', baseAddress);
 
-waitForUnpack();
 hookGeneric();
