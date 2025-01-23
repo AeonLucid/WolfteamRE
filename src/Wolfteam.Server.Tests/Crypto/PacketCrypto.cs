@@ -9,7 +9,7 @@ public class PacketCryptoTests
     [Test]
     public void DecryptPacket()
     {
-        var packet = Convert.FromHexString("caee6cc216145f062f8401eae205c7ec159221d2cc99983a").AsSpan();
+        var packet = Convert.FromHexString("66b732a7223762ee5c086db87a2c54bd4e6dc92ee96c7d3d").AsSpan();
         var key = new byte[16];
 
         if (!PacketCrypto.TryDecryptHeader(packet.Slice(0, 8), key))
