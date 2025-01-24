@@ -14,10 +14,12 @@ public static class PacketSerializer
     private static readonly ILogger Logger = Log.ForContext(typeof(PacketSerializer));
 
     private static readonly Dictionary<PacketId, Type> PacketIdToType;
+    private static readonly Dictionary<Type, PacketId> PacketTypeToId;
 
     static PacketSerializer()
     {
         PacketIdToType = new Dictionary<PacketId, Type>();
+        PacketTypeToId = new Dictionary<Type, PacketId>();
         
         var packetTypes = Assembly
             .GetExecutingAssembly()
@@ -37,7 +39,17 @@ public static class PacketSerializer
             {
                 Logger.Warning("Duplicate packet id {PacketId} for {PacketType}", wolfteamPacketAttribute.Id, packetType.Name);
             }
+            
+            if (!PacketTypeToId.TryAdd(packetType, wolfteamPacketAttribute.Id))
+            {
+                Logger.Warning("Duplicate packet type {PacketType} for {PacketId}", packetType.Name, wolfteamPacketAttribute.Id);
+            }
         }
+    }
+
+    public static bool TryGetId(IWolfPacket packet, out PacketId packetId)
+    {
+        return PacketTypeToId.TryGetValue(packet.GetType(), out packetId);
     }
     
     public static bool TryDeserialize(PacketId packetId, ClientVersion version, ReadOnlySpan<byte> payload, [NotNullWhen(true)] out IWolfPacket? packet)
