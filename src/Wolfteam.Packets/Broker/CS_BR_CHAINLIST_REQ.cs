@@ -2,7 +2,6 @@
 // Licensed under the AGPL-3.0 License.
 // Solution Wolfteam, Date 2025-01-22.
 
-using System.Text;
 using Wolfteam.Packets.Attributes;
 
 namespace Wolfteam.Packets.Broker;

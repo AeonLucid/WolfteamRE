@@ -15,15 +15,17 @@ public abstract class WolfGameConnection : WolfConnection
     private readonly ILogger _logger;
     private readonly ClientVersion _clientVersion;
 
+    private int _sequence;
+
     protected WolfGameConnection(ILogger logger, ClientVersion clientVersion, Guid id, Socket client) : base(logger, id, client)
     {
         _logger = logger;
         _clientVersion = clientVersion;
     }
 
-    protected abstract ValueTask HandlePacketAsync(PacketId id, PacketHeader header, IWolfPacket packet);
+    public abstract ValueTask HandlePacketAsync(PacketId id, IWolfPacket packet);
     
-    protected async ValueTask SendPacketAsync(short sequence, IWolfPacket packet)
+    protected async ValueTask SendPacketAsync(IWolfPacket packet)
     {
         // Calculate sizes.
         var payloadSizeExtra = 1; // ErrorCode (??)
@@ -43,11 +45,17 @@ public abstract class WolfGameConnection : WolfConnection
             return;    
         }
         
+        var sequence = Interlocked.Exchange(ref _sequence, _sequence + 1);
+        if (sequence >= short.MaxValue)
+        {
+            throw new InvalidOperationException("Sequence overflow, unhandled case");    
+        }
+        
         var header = new PacketHeader
         {
             Random = (byte)Random.Shared.Next(0, byte.MaxValue),
             Id = (short)id,
-            Sequence = sequence,
+            Sequence = (short)sequence,
             Blocks = (short)(payloadSizeEnc >> 4),
             Checksum = 0
         };
@@ -95,7 +103,7 @@ public abstract class WolfGameConnection : WolfConnection
 
     protected override async ValueTask ProcessPacketAsync(ReadOnlySequence<byte> buffer)
     {
-        _logger.Debug("Processing packet {Packet}", Convert.ToHexStringLower(buffer.ToArray()));
+        _logger.Verbose("Processing packet {Packet}", Convert.ToHexStringLower(buffer.ToArray()));
 
         if (!TryParsePacket(buffer, out var header, out var packet))
         {
@@ -107,7 +115,7 @@ public abstract class WolfGameConnection : WolfConnection
         _logger.Debug("Sequence {Sequence}", header.Sequence);
         _logger.Debug("Payload  {@Payload}", packet);
 
-        await HandlePacketAsync((PacketId)header.Id, header, packet);
+        await HandlePacketAsync((PacketId)header.Id, packet);
     }
 
     /// <summary>
@@ -153,6 +161,8 @@ public abstract class WolfGameConnection : WolfConnection
         }
         
         // Parse payload.
+        _logger.Debug("Deserializing payload {Payload}", Convert.ToHexStringLower(payload));
+        
         var packetId = (PacketId)header.Id;
         
         if (!PacketSerializer.TryDeserialize(packetId, _clientVersion, payload, out packet))

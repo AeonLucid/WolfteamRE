@@ -4,7 +4,6 @@
 
 using Serilog;
 using Serilog.Events;
-using Wolfteam.Server;
 using Wolfteam.Server.Channel;
 using Wolfteam.Server.Utils;
 
@@ -23,7 +22,7 @@ Console.CancelKeyPress += (_, args) =>
     cancelTokenSource.Cancel();
 };
 
-using var server = new WolfServer<ChannelConnection>(40850);
+using var server = new ChannelServer(40850);
 
 server.Listen();
 

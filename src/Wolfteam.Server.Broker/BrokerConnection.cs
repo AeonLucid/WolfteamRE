@@ -19,19 +19,19 @@ public class BrokerConnection : WolfGameConnection
     {
     }
 
-    protected override async ValueTask HandlePacketAsync(PacketId id, PacketHeader header, IWolfPacket packet)
+    public override async ValueTask HandlePacketAsync(PacketId id, IWolfPacket packet)
     {
         switch (packet)
         {
             case CS_BR_CHAINLIST_REQ:
-                await SendPacketAsync(header.Sequence, new CS_BR_CHAINLIST_ACK
+                await SendPacketAsync(new CS_BR_CHAINLIST_ACK
                 {
                     // Must be 14 entries.
                     Chainlist = Enumerable.Repeat((byte)14, 14).ToArray()
                 });
                 break;
             case CS_BR_WORLDLIST_REQ:
-                await SendPacketAsync(header.Sequence, new CS_BR_WORLDLIST_ACK
+                await SendPacketAsync(new CS_BR_WORLDLIST_ACK
                 {
                     // 20 entries of the same server.
                     Entries =
@@ -240,7 +240,7 @@ public class BrokerConnection : WolfGameConnection
                 });
                 break;
             case CS_BR_WORLDINFO_REQ:
-                await SendPacketAsync(header.Sequence, new CS_BR_WORLDINFO_ACK
+                await SendPacketAsync(new CS_BR_WORLDINFO_ACK
                 {
                     WorldInfoEntries =
                     [
@@ -408,14 +408,14 @@ public class BrokerConnection : WolfGameConnection
                 });
                 break;
             case CS_BR_RELAYLIST_REQ:
-                await SendPacketAsync(header.Sequence, new CS_BR_RELAYLIST_ACK
+                await SendPacketAsync(new CS_BR_RELAYLIST_ACK
                 {
                     // Seems to be an outdated length field.
                     Padding = 20,
                     // 20 entries of the same relay.
-                    Relays = Enumerable.Range(0, 20).Select(id => new RelayEntry
+                    Relays = Enumerable.Range(0, 20).Select(relayId => new RelayEntry
                     {
-                        Id = (byte)id,
+                        Id = (byte)relayId,
                         Address = 0x0100007F,
                         Port = 16540,
                         Padding = 0
