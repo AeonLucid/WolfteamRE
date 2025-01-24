@@ -17,6 +17,12 @@ public class WolfteamFieldAttribute : Attribute
     public ClientVersion Version { get; set; }
 
     /// <summary>
+    ///     Specify the length of the field.
+    ///     Valid for strings.
+    /// </summary>
+    public int Length { get; set; }
+    
+    /// <summary>
     ///     Specify the amount of bytes used to store the length of the field.
     ///     Valid for strings, arrays and lists.
     /// </summary>

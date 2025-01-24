@@ -29,35 +29,52 @@ internal class CodeGenSerialize : ICodeGen
     {
         builder.AppendFormat("{0}if (string.IsNullOrEmpty({1}))\n", ident, refName);
         builder.AppendFormat("{0}{{\n", ident);
-        switch (attribute.LengthSize)
+        if (attribute.Length == 0)
         {
-            case 1:
-                WriteU8(builder, ident + Constants.DefaultIdent, 0, attribute);
-                break;
-            case 2:
-                WriteU16(builder, ident + Constants.DefaultIdent, 0, attribute);
-                break;
-            case 4:
-                WriteU32(builder, ident + Constants.DefaultIdent, 0, attribute);
-                break;
-            default:
-                throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            switch (attribute.LengthSize)
+            {
+                case 1:
+                    WriteU8(builder, ident + Constants.DefaultIdent, 0, attribute);
+                    break;
+                case 2:
+                    WriteU16(builder, ident + Constants.DefaultIdent, 0, attribute);
+                    break;
+                case 4:
+                    WriteU32(builder, ident + Constants.DefaultIdent, 0, attribute);
+                    break;
+                default:
+                    throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            }
+        }
+        else
+        {
+            builder.AppendFormat("{0}writer.Skip({1});\n", ident + Constants.DefaultIdent, attribute.Length);
         }
         builder.AppendFormat("{0}}} else {{\n", ident);
         builder.AppendFormat("{0}{1} = Encoding.{2}.GetByteCount({3});\n", ident + Constants.DefaultIdent, StringSizeRef, attribute.Encoding, refName);
-        switch (attribute.LengthSize)
+        if (attribute.Length == 0)
         {
-            case 1:
-                WriteU8(builder, ident + Constants.DefaultIdent, $"Convert.ToByte({StringSizeRef})", attribute);
-                break;
-            case 2:
-                WriteU16(builder, ident + Constants.DefaultIdent, $"Convert.ToUInt16({StringSizeRef})", attribute);
-                break;
-            case 4:
-                WriteU32(builder, ident + Constants.DefaultIdent, $"Convert.ToUInt32({StringSizeRef})", attribute);
-                break;
-            default:
-                throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            switch (attribute.LengthSize)
+            {
+                case 1:
+                    WriteU8(builder, ident + Constants.DefaultIdent, $"Convert.ToByte({StringSizeRef})", attribute);
+                    break;
+                case 2:
+                    WriteU16(builder, ident + Constants.DefaultIdent, $"Convert.ToUInt16({StringSizeRef})", attribute);
+                    break;
+                case 4:
+                    WriteU32(builder, ident + Constants.DefaultIdent, $"Convert.ToUInt32({StringSizeRef})", attribute);
+                    break;
+                default:
+                    throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            }
+        }
+        else
+        {
+            builder.AppendFormat("{0}if ({1} != {2})\n", ident + Constants.DefaultIdent, StringSizeRef, attribute.Length);
+            builder.AppendFormat("{0}{{\n", ident + Constants.DefaultIdent);
+            builder.AppendFormat("{0}throw new InvalidOperationException(\"String length mismatch should be {1}\");\n", ident + Constants.DefaultIdent + Constants.DefaultIdent, attribute.LengthSize);
+            builder.AppendFormat("{0}}}\n", ident + Constants.DefaultIdent);
         }
         builder.AppendFormat("{0}writer.WriteString(Encoding.{1}, {2});\n", ident + Constants.DefaultIdent, attribute.Encoding, refName);
         builder.AppendFormat("{0}}}\n", ident);

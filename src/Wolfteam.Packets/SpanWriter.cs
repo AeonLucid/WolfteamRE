@@ -35,6 +35,12 @@ public ref struct SpanWriter
         Position += count;
     }
     
+    public void Skip(int count)
+    {
+        CheckBounds(count);
+        Advance(count);
+    }
+    
     public void WriteS8(sbyte value)
     {
         CheckBounds(1);

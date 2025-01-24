@@ -23,6 +23,12 @@ internal class CodeGenSize : ICodeGen
 
     public void WriteString(StringBuilder builder, string ident, string refName, WolfteamFieldAttribute attribute)
     {
+        if (attribute.Length != 0)
+        {
+            builder.AppendFormat("{0}size += {1};\n", ident, attribute.Length);
+            return;
+        }
+        
         switch (attribute.LengthSize)
         {
             case 1:

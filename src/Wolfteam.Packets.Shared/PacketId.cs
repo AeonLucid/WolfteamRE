@@ -13,5 +13,6 @@ public enum PacketId : ushort
     
     CS_CK_ALIVE_REQ = 0x1202,
     
+    CS_CH_LOGIN_REQ = 0x1300,
     CS_CH_DISCONNECT_REQ = 0x1312,
 }

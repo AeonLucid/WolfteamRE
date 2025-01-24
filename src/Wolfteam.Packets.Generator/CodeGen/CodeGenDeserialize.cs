@@ -53,23 +53,30 @@ internal class CodeGenDeserialize : ICodeGen
     {
         // Read length.
         string lengthRef;
-            
-        switch (attribute.LengthSize)
+        
+        if (attribute.Length != 0)
         {
-            case 1:
-                lengthRef = ByteValue;
-                WriteU8(builder, ident, ByteValue, attribute);
-                break;
-            case 2:
-                lengthRef = ShortValue;
-                WriteU16(builder, ident, ShortValue, attribute);
-                break;
-            case 4:
-                lengthRef = IntValue;
-                WriteU32(builder, ident, IntValue, attribute);
-                break;
-            default:
-                throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            lengthRef = attribute.Length.ToString();
+        }
+        else
+        {
+            switch (attribute.LengthSize)
+            {
+                case 1:
+                    lengthRef = ByteValue;
+                    WriteU8(builder, ident, ByteValue, attribute);
+                    break;
+                case 2:
+                    lengthRef = ShortValue;
+                    WriteU16(builder, ident, ShortValue, attribute);
+                    break;
+                case 4:
+                    lengthRef = IntValue;
+                    WriteU32(builder, ident, IntValue, attribute);
+                    break;
+                default:
+                    throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            }
         }
             
         // Read string.

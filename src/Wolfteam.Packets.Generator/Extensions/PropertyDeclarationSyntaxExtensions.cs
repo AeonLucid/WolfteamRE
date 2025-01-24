@@ -47,6 +47,12 @@ internal static class PropertyDeclarationSyntaxExtensions
                 
                 switch (argument.Key)
                 {
+                    case nameof(WolfteamFieldAttribute.Version):
+                        result.Version = (ClientVersion) argument.Value.Value!;
+                        break;
+                    case nameof(WolfteamFieldAttribute.Length):
+                        result.Length = (int) argument.Value.Value!;
+                        break;
                     case nameof(WolfteamFieldAttribute.LengthSize):
                         result.LengthSize = (int) argument.Value.Value!;
                         break;
@@ -55,9 +61,6 @@ internal static class PropertyDeclarationSyntaxExtensions
                         break;
                     case nameof(WolfteamFieldAttribute.Encoding):
                         result.Encoding = (FieldEncoding) argument.Value.Value!;
-                        break;
-                    case nameof(WolfteamFieldAttribute.Version):
-                        result.Version = (ClientVersion) argument.Value.Value!;
                         break;
                 }
             }

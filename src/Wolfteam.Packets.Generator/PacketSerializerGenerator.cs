@@ -191,7 +191,8 @@ public class PacketSerializerGenerator : ISourceGenerator
                     break;
 
                 case "string":
-                    if (propAttribute.LengthSize == 0)
+                    if (propAttribute.Length == 0 &&
+                        propAttribute.LengthSize == 0)
                     {
                         context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
                         return;
