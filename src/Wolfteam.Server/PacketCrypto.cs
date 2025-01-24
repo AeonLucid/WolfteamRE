@@ -85,6 +85,11 @@ public static class PacketCrypto
 
     public static bool TryDecryptPayload(ReadOnlySpan<byte> key, Span<byte> payload)
     {
+        if (payload.Length % 16 != 0)
+        {
+            return false;
+        }
+        
         using var aes = Aes.Create();
             
         aes.Key = key.ToArray();

@@ -71,6 +71,8 @@ public abstract class WolfGameConnection : WolfConnection
             buffer.Slice(PacketHeader.Size + payloadSize, payloadRemaining).Clear();
         }
     
+        _logger.Debug("Encrypting packet {Packet}", Convert.ToHexStringLower(buffer.ToArray()));
+        
         // Encrypt header.
         Span<byte> key = stackalloc byte[16];
         
@@ -80,6 +82,7 @@ public abstract class WolfGameConnection : WolfConnection
             return;
         }
     
+        // Encrypt payload.
         if (!PacketCrypto.TryEncryptPayload(key, buffer.Slice(PacketHeader.Size)))
         {
             _logger.Warning("Failed to encrypt packet payload");
