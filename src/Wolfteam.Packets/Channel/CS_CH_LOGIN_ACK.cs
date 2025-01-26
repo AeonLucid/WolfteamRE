@@ -20,8 +20,8 @@ public partial class CS_CH_LOGIN_ACK : IWolfPacket
     public string? Uk9 { get; set; }
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.ASCII)]
     public string? Uk10 { get; set; }
-    [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.ASCII)]
-    public string? Uk11 { get; set; }
+    [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.Unicode)]
+    public string? MuteBanReason { get; set; }
     /// <summary>
     ///     Boolean
     /// </summary>

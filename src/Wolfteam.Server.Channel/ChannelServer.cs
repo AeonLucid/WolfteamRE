@@ -40,25 +40,28 @@ public class ChannelServer : WolfServer<ChannelConnection>
             while (true)
             {
                 var data = await _udp.ReceiveAsync();
-                
-                Log.Information("Received UDP: {Amount} bytes from {RemoteEndpoint}", data.Buffer.Length, data.RemoteEndPoint);
-                
+
+                Log.Information("Received UDP: {Amount} bytes from {RemoteEndpoint}, {Data}", 
+                    data.Buffer.Length, 
+                    data.RemoteEndPoint,
+                    data.Buffer);
+
                 var reader = new SpanReader(data.Buffer);
-            
+
                 if (!reader.TryReadU16(out var id))
                 {
-                    return;
+                    continue;
                 }
 
                 if (!reader.TryReadU16(out var length))
                 {
-                    return;
+                    continue;
                 }
-            
+
                 Log.Information("UDP Received Id: {Id}, Length: {Length}", id, length);
 
                 var packetId = (PacketId)id;
-                
+
                 switch (packetId)
                 {
                     case PacketId.CS_UD_UDPADDR_REQ:
@@ -69,9 +72,9 @@ public class ChannelServer : WolfServer<ChannelConnection>
                             Log.Error("UDP Failed to deserialize");
                             break;
                         }
-                        
+
                         Log.Information("UDP Received: {@UdpaddrReq}", udpaddrReq);
-                        
+
                         // Find the related TCP connection.
                         var connection = Connections.FirstOrDefault();
                         if (connection.Value is not ChannelConnection channelConnection)
@@ -79,6 +82,9 @@ public class ChannelServer : WolfServer<ChannelConnection>
                             Log.Error("UDP Failed to find related TCP connection");
                             break;
                         }
+
+                        // Update channel UDP details.
+                        channelConnection.UdpAddress = new IPEndPoint(data.RemoteEndPoint.Address, data.RemoteEndPoint.Port);
                         
                         await channelConnection.HandlePacketAsync(PacketId.CS_UD_UDPADDR_REQ, udpaddrReq);
                         break;
@@ -95,6 +101,10 @@ public class ChannelServer : WolfServer<ChannelConnection>
         catch (Exception e)
         {
             Logger.Error(e, "Error accepting UDP");
+        }
+        finally
+        {
+            Logger.Information("UDP Task finished");
         }
     }
 
