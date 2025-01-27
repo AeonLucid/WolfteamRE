@@ -59,7 +59,11 @@ public static class PacketSerializer
             var packetIdShort = (ushort)packetId;
             
             Logger.Warning("Missing class for packet id {PacketId}", packetId);
-            Logger.Verbose("Tip: find with \"{A:x2} {B:x2} 00 00\"", packetIdShort & 0xFF, packetIdShort >> 8);
+            
+            if (!Enum.IsDefined(typeof(PacketId), packetIdShort))
+            {
+                Logger.Verbose("Tip: find with \"{A:x2} {B:x2} 00 00\"", packetIdShort & 0xFF, packetIdShort >> 8);
+            }
 
             packet = null;
             return false;

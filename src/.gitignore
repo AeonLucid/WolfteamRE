@@ -1,3 +1,5 @@
+Wolfteam.Server.Broker/logs
+Wolfteam.Server.Channel/logs
 Wolfteam.Packets/Generated
 
 ## Ignore Visual Studio temporary files, build results, and

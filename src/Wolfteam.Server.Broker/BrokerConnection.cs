@@ -423,7 +423,7 @@ public class BrokerConnection : WolfGameConnection
                 });
                 break;
             default:
-                Logger.Warning("Unhandled packet {@Packet}", packet);
+                Logger.Warning("Unhandled packet {PacketId}", id);
                 break;
         }
     }

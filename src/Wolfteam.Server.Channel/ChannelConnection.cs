@@ -263,8 +263,19 @@ public class ChannelConnection : WolfGameConnection
             case CS_FD_USEHACKTOOL_REQ useHackToolReq:
                 Logger.Warning("Client has unwanted files {@Files}", useHackToolReq.Uk4);
                 break;
+            case CS_CN_CHANGESHEET_ACK changeSheetAck:
+                Logger.Information("Changed sheet to {Uk1}", changeSheetAck.Uk1);
+                
+                await SendPacketAsync(new CS_CN_CHANGESHEET_ACK
+                {
+                    Uk1 = changeSheetAck.Uk1
+                });
+                break;
+            case CS_CH_LOGOUT_REQ:
+                await SendPacketAsync(new CS_CH_LOGOUT_ACK());
+                break;
             default:
-                Logger.Warning("Unhandled packet {@Packet}", packet);
+                Logger.Warning("Unhandled packet {PacketId}", id);
                 break;
         }
     }
