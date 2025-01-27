@@ -1,4 +1,9 @@
-﻿using System.Text;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-27.
+
+using System.Linq;
+using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,8 +15,8 @@ using Wolfteam.Packets.Generator.Util;
 
 namespace Wolfteam.Packets.Generator;
 
-[Generator]
-public class PacketSerializerGenerator : ISourceGenerator
+[Generator(LanguageNames.CSharp)]
+public class PacketSerializerGenerator : IIncrementalGenerator
 {
     public PacketSerializerGenerator()
     {
@@ -23,35 +28,88 @@ public class PacketSerializerGenerator : ISourceGenerator
 // #endif
     }
 
-    public void Initialize(GeneratorInitializationContext context)
+    public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        context.RegisterForSyntaxNotifications(() => new PacketSyntaxReceiver());
-    }
+        var classDeclarations = context.SyntaxProvider
+            .CreateSyntaxProvider(
+                predicate: static (s, _) => IsSyntaxTargetForGeneration(s),
+                transform: static (ctx, _) => GetSemanticTargetForGeneration(ctx))
+            .Where(static m => m is not null);
 
-    public void Execute(GeneratorExecutionContext context)
-    {
-        if (context.SyntaxContextReceiver is PacketSyntaxReceiver packet)
+        var source = classDeclarations
+            .Combine(context.CompilationProvider)!
+            .WithComparer(ClassSyntaxComparer.Instance);
+        
+        context.RegisterSourceOutput(source, static (context, source) =>
         {
-            foreach (var candidate in packet.Candidates)
-            {
-                var classNamespace = candidate.GetNamespace();
-                var className = candidate.GetName();
+            var (classDeclaration, compilation) = source;
 
-                var sourceHint = $"{classNamespace}_{className}_Serializer";
-                var sourceText = BuildFile(context, candidate);
-
-                context.AddSource(sourceHint, SourceText.From(sourceText, Encoding.UTF8));
-            }
-        }
+            Generate(context, compilation, classDeclaration);
+        });
     }
 
-    private string BuildFile(GeneratorExecutionContext context, ClassDeclarationSyntax classDeclaration)
+    // Quick filter to find the syntax nodes we are interested in.
+    private static bool IsSyntaxTargetForGeneration(SyntaxNode syntaxNode)
+    {
+        if (syntaxNode is not ClassDeclarationSyntax classDeclarationSyntax)
+        {
+            return false;
+        }
+        
+        if (classDeclarationSyntax.BaseList == null)
+        {
+            return false;
+        }
+        
+        if (!classDeclarationSyntax.Modifiers.Any(SyntaxKind.PartialKeyword))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    // More detailed analysis of the syntax nodes found in the predicate.
+    private static ClassDeclarationSyntax? GetSemanticTargetForGeneration(GeneratorSyntaxContext context)
+    {
+        if (context.Node is not ClassDeclarationSyntax classDeclarationSyntax)
+        {
+            return null;
+        }
+
+        if (classDeclarationSyntax.BaseList == null)
+        {
+            return null;
+        }
+        
+        if (!classDeclarationSyntax.BaseList.Types.Any(x => x.Type.IsPacketPayloadType(context.SemanticModel)))
+        {
+            return null;
+        }
+        
+        return classDeclarationSyntax;
+    }
+
+    public static void Generate(SourceProductionContext context, Compilation compilation, ClassDeclarationSyntax candidate)
+    {
+        var semanticModel = compilation.GetSemanticModel(candidate.SyntaxTree);
+        
+        var classNamespace = candidate.GetNamespace();
+        var className = candidate.GetName();
+
+        var sourceHint = $"{classNamespace}_{className}_Serializer";
+        var sourceText = BuildFile(new BuildContext(context, semanticModel, candidate));
+
+        context.AddSource(sourceHint, SourceText.From(sourceText, Encoding.UTF8));
+    }
+
+    private static string BuildFile(BuildContext build)
     {
         var ident = "";
         var builder = new StringBuilder();
 
-        var classNamespace = classDeclaration.GetNamespace();
-        var className = classDeclaration.GetName();
+        var classNamespace = build.Syntax.GetNamespace();
+        var className = build.Syntax.GetName();
 
         builder.AppendFormat("{0}using System;\n", ident);
         builder.AppendFormat("{0}using System.Text;\n", ident);
@@ -71,21 +129,21 @@ public class PacketSerializerGenerator : ISourceGenerator
         // Size
         builder.AppendFormat("{0}public int Size(ClientVersion version)\n", ident);
         builder.AppendFormat("{0}{{\n", ident);
-        BuildMethod(context, classDeclaration, builder, ident + Constants.DefaultIdent, new CodeGenSize());
+        BuildMethod(build, builder, ident + Constants.DefaultIdent, new CodeGenSize());
         builder.AppendFormat("{0}}}\n", ident); // Size
         builder.AppendFormat("\n");
 
         // Serialize
         builder.AppendFormat("{0}public void Serialize(ClientVersion version, ref SpanWriter writer)\n", ident);
         builder.AppendFormat("{0}{{\n", ident);
-        BuildMethod(context, classDeclaration, builder, ident + Constants.DefaultIdent, new CodeGenSerialize());
+        BuildMethod(build, builder, ident + Constants.DefaultIdent, new CodeGenSerialize());
         builder.AppendFormat("{0}}}\n", ident); // Serialize
         builder.AppendFormat("\n");
 
         // Parse
         builder.AppendFormat("{0}public bool Deserialize(ClientVersion version, ref SpanReader reader)\n", ident);
         builder.AppendFormat("{0}{{\n", ident);
-        BuildMethod(context, classDeclaration, builder, ident + Constants.DefaultIdent, new CodeGenDeserialize());
+        BuildMethod(build, builder, ident + Constants.DefaultIdent, new CodeGenDeserialize());
         builder.AppendFormat("{0}}}\n", ident); // Deserialize
 
         ident = Constants.DefaultIdent;
@@ -96,7 +154,7 @@ public class PacketSerializerGenerator : ISourceGenerator
         return builder.ToString();
     }
 
-    private static void BuildMethod(GeneratorExecutionContext context, ClassDeclarationSyntax classDeclaration, StringBuilder builder, string ident, ICodeGen codeGen)
+    private static void BuildMethod(BuildContext build, StringBuilder builder, string ident, ICodeGen codeGen)
     {
         var isSize = codeGen is CodeGenSize;
         var isWrite = codeGen is CodeGenSerialize;
@@ -119,9 +177,7 @@ public class PacketSerializerGenerator : ISourceGenerator
         }
 
         // Body.
-        var semanticModel = context.Compilation.GetSemanticModel(classDeclaration.SyntaxTree);
-        
-        foreach (var property in classDeclaration.GetProperties())
+        foreach (var property in build.Syntax.GetProperties())
         {
             var propType = property.Type;
             if (propType is NullableTypeSyntax nullableTypeSyntax)
@@ -130,7 +186,7 @@ public class PacketSerializerGenerator : ISourceGenerator
             }
                 
             var propName = property.GetName();
-            var propAttribute = property.GetAttribute(semanticModel);
+            var propAttribute = property.GetAttribute(build.SemanticModel);
 
             builder.AppendFormat("{0}// {1}\n", ident, propName);
 
@@ -139,12 +195,12 @@ public class PacketSerializerGenerator : ISourceGenerator
             {
                 builder.AppendFormat("{0}if (((int)version & {1}) != 0)\n", ident, (int) propAttribute.Version);
                 builder.AppendFormat("{0}{{\n", ident);
-                WriteProperty(context, codeGen, semanticModel, builder, ident + Constants.DefaultIdent, propType, propName, propAttribute);
+                WriteProperty(build, codeGen, builder, ident + Constants.DefaultIdent, propType, propName, propAttribute);
                 builder.AppendFormat("{0}}}\n", ident);
             }
             else
             {
-                WriteProperty(context, codeGen, semanticModel, builder, ident, propType, propName, propAttribute);
+                WriteProperty(build, codeGen, builder, ident, propType, propName, propAttribute);
             }
         }
 
@@ -160,9 +216,8 @@ public class PacketSerializerGenerator : ISourceGenerator
     }
 
     private static void WriteProperty(
-        GeneratorExecutionContext context,
+        BuildContext build,
         ICodeGen codeGen,
-        SemanticModel semanticModel,
         StringBuilder builder,
         string ident,
         TypeSyntax propType,
@@ -193,7 +248,7 @@ public class PacketSerializerGenerator : ISourceGenerator
                     if (propAttribute.Length == 0 &&
                         propAttribute.LengthSize == 0)
                     {
-                        context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
+                        build.Context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
                         return;
                     }
                     
@@ -201,7 +256,7 @@ public class PacketSerializerGenerator : ISourceGenerator
                     break;
 
                 default:
-                    context.ReportDiagnostic(DiagnosticUtil.UnknownType(propType.GetLocation(), propTypeName));
+                    build.Context.ReportDiagnostic(DiagnosticUtil.UnknownType(propType.GetLocation(), propTypeName));
                     break;
             }
         }
@@ -209,36 +264,36 @@ public class PacketSerializerGenerator : ISourceGenerator
         {
             var typeArr = (ArrayTypeSyntax)propType;
             var typeArrElement = typeArr.ElementType;
-            var typeGlobal = typeArrElement.GetGlobalTypeName(semanticModel);
+            var typeGlobal = typeArrElement.GetGlobalTypeName(build.SemanticModel);
 
             if (propAttribute.LengthSize == 0)
             {
-                context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
+                build.Context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
                 return;
             }
             
             codeGen.WriteObjectArray(builder, ident, propName, typeGlobal, propAttribute, (elIndent, elRefName) =>
             {
-                WriteProperty(context, codeGen, semanticModel, builder, elIndent, typeArrElement, elRefName, propAttribute);
+                WriteProperty(build, codeGen, builder, elIndent, typeArrElement, elRefName, propAttribute);
             });
         }
         else if (propKind == SyntaxKind.IdentifierName)
         {
             var typeObj = (IdentifierNameSyntax)propType;
-            if (typeObj.ImplementsPacketPayloadType(semanticModel))
+            if (typeObj.ImplementsPacketPayloadType(build.SemanticModel))
             {
-                var typeGlobal = typeObj.GetGlobalTypeName(semanticModel);
+                var typeGlobal = typeObj.GetGlobalTypeName(build.SemanticModel);
                 
                 codeGen.WriteObject(builder, ident, propName, typeGlobal, propAttribute);
             }
             else
             {
-                context.ReportDiagnostic(DiagnosticUtil.InvalidObject(propType.GetLocation()));
+                build.Context.ReportDiagnostic(DiagnosticUtil.InvalidObject(propType.GetLocation()));
             }
         }
         else
         {
-            context.ReportDiagnostic(DiagnosticUtil.UnknownKind(propType.GetLocation(), propTypeName, propKind));
+            build.Context.ReportDiagnostic(DiagnosticUtil.UnknownKind(propType.GetLocation(), propTypeName, propKind));
         }
     }
 }

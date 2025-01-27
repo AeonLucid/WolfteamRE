@@ -11,6 +11,10 @@
 
     <RootNamespace>Wolfteam.Packets.Generator</RootNamespace>
     <PackageId>Wolfteam.Packets.Generator</PackageId>
+
+    <AnalyzerLanguage>cs</AnalyzerLanguage>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <IncludeSymbols>false</IncludeSymbols>
   </PropertyGroup>
 
   <ItemGroup>

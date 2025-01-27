@@ -1,4 +1,8 @@
-﻿using System.Text;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-27.
+
+using System.Text;
 using Wolfteam.Packets.Attributes;
 
 namespace Wolfteam.Packets.Generator.CodeGen;

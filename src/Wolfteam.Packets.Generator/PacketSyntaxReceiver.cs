@@ -1,4 +1,8 @@
-﻿using System.Collections.Generic;
+﻿// Copyright (c) AeonLucid. All Rights Reserved.
+// Licensed under the AGPL-3.0 License.
+// Solution Wolfteam, Date 2025-01-27.
+
+using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
