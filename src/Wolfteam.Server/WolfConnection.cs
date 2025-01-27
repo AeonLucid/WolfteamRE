@@ -31,6 +31,8 @@ public abstract class WolfConnection : IDisposable
         _recvPipe = new Pipe(new PipeOptions());
         _sendPipe = new Pipe(new PipeOptions());
     }
+    
+    public bool Connected => !_shutdown && !_disposed && _client.Connected;
 
     public void Start()
     {

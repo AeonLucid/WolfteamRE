@@ -79,7 +79,7 @@ public abstract class WolfGameConnection : WolfConnection
             buffer.Slice(PacketHeader.Size + payloadSize, payloadRemaining).Clear();
         }
     
-        _logger.Debug("Encrypting packet {Packet}", Convert.ToHexStringLower(buffer.ToArray()));
+        _logger.Debug("Sending encrypted packet {PacketId} {Packet}", id, Convert.ToHexStringLower(buffer.ToArray()));
         
         // Encrypt header.
         Span<byte> key = stackalloc byte[16];
@@ -167,7 +167,7 @@ public abstract class WolfGameConnection : WolfConnection
         
         if (!PacketSerializer.TryDeserialize(packetId, _clientVersion, payload, out packet))
         {
-            _logger.Warning("Failed to deserialize packet id {PacketId}, data '{Data}'", packetId, Convert.ToHexStringLower(payload));
+            _logger.Warning("Failed to deserialize packet id {PacketId}, data '{Data}'. Got {@WolfPacket}", packetId, Convert.ToHexStringLower(payload), packet);
             packet = null;
             return false;
         }

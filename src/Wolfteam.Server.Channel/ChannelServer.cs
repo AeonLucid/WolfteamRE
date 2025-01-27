@@ -76,7 +76,7 @@ public class ChannelServer : WolfServer<ChannelConnection>
                         Log.Information("UDP Received: {@UdpaddrReq}", udpaddrReq);
 
                         // Find the related TCP connection.
-                        var connection = Connections.FirstOrDefault();
+                        var connection = Connections.FirstOrDefault(pair => pair.Value.Connected);
                         if (connection.Value is not ChannelConnection channelConnection)
                         {
                             Log.Error("UDP Failed to find related TCP connection");

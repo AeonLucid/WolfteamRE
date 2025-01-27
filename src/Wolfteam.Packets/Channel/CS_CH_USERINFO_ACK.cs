@@ -34,7 +34,7 @@ public partial class CS_CH_USERINFO_ACK : IWolfPacket
     
     public byte Uk11 { get; set; }
     
-    public byte Uk12 { get; set; }
+    public byte Class { get; set; }
     
     public uint Ranking { get; set; }
     

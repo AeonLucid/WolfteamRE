@@ -34,14 +34,14 @@ public class ChannelConnection : WolfGameConnection
             case CS_CH_LOGIN_REQ loginReq:
                 await SendPacketAsync(new CS_CH_LOGIN_ACK
                 {
-                    Uk1 = 123,
-                    Uk2 = 456789,
-                    Uk3 = 3,
-                    Uk4 = 4,
-                    Uk5 = 5,
-                    Uk6 = 6,
-                    Uk7 = 1,
-                    Uk8 = 8,
+                    Uk1 = 0x7B,
+                    Uk2 = 0x6F855,
+                    Uk3 = 1,
+                    Uk4 = 1,
+                    ChannelType = 0, // 0 = lobby, 1 = pride battle championship lobby, 2 = pride battle lobby, 3 = ranking, 4 = lobby with ranks
+                    Uk6 = 1,
+                    IsMuted = 0,
+                    EventTheme = 6, // 1 = chinese new year, 2 = valentine, 3 = golden egg, 4 = independence day, 8 = halloween
                     Uk9 = "One",    // Mute releated
                     Uk10 = "Two",  // Mute releated
                     MuteBanReason = "Three",
@@ -103,8 +103,8 @@ public class ChannelConnection : WolfGameConnection
                     Uk8 = 100,
                     Uk9 = 320,
                     Uk10 = 4698,
-                    Uk11 = 25,
-                    Uk12 = 46,
+                    Uk11 = 1,
+                    Class = 61,
                     Ranking = 213,
                     Uk14 = 6307,
                     Uk15 = 850,
@@ -263,13 +263,178 @@ public class ChannelConnection : WolfGameConnection
             case CS_FD_USEHACKTOOL_REQ useHackToolReq:
                 Logger.Warning("Client has unwanted files {@Files}", useHackToolReq.Uk4);
                 break;
-            case CS_CN_CHANGESHEET_ACK changeSheetAck:
+            case CS_CN_CHANGESHEET_REQ changeSheetAck:
                 Logger.Information("Changed sheet to {Uk1}", changeSheetAck.Uk1);
                 
                 await SendPacketAsync(new CS_CN_CHANGESHEET_ACK
                 {
                     Uk1 = changeSheetAck.Uk1
                 });
+                break;
+            case CS_FD_FIELDLIST_REQ fieldlistReq:
+                Logger.Information("Requesting field list {@FieldList}", fieldlistReq);
+            
+                await SendPacketAsync(new CS_FD_FIELDLIST_ACK
+                {
+                    Uk1 = 3,
+                    Uk2 = 5,
+                    Uk3 = [
+                        new FieldListEntry
+                        {
+                            FieldId = 0x111,
+                            Title = "Game 1",
+                            IsProtected = 0,
+                            IsPlaying = 0,
+                            Map = 60,
+                            Mode = 2,
+                            Uk7 = 1, // Maybe SubMode?
+                            Time = 600,
+                            Mission = 100,
+                            Uk10 = 0,
+                            Uk11 = 0,
+                            Uk12 = 0,
+                            PlayerMax = 16,
+                            PlayerCount = 0,
+                            Uk15 = 0,
+                            Uk16 = 0,
+                            Uk17 = 0, // 1 = green room name
+                            ClassMax = 0,
+                            ClassMin = 0x3D
+                        },
+                        new FieldListEntry
+                        {
+                            FieldId = 0x112,
+                            Title = "Game 2",
+                            IsProtected = 0,
+                            IsPlaying = 0,
+                            Map = 60,
+                            Mode = 2,
+                            Uk7 = 1, // Maybe SubMode?
+                            Time = 600,
+                            Mission = 100,
+                            Uk10 = 1,
+                            Uk11 = 1,
+                            Uk12 = 1,
+                            PlayerMax = 16,
+                            PlayerCount = 0,
+                            Uk15 = 1, // 0 = white row, 1 = gray
+                            Uk16 = 0,
+                            Uk17 = 0, // 0 = white/gray, 1 = green room name
+                            ClassMax = 0,
+                            ClassMin = 0x3D
+                        }
+                    ]
+                });
+                break;
+            case CS_FD_CREATE_REQ createAck:
+                Logger.Information("Creating room {@Room}", createAck);
+                
+                await SendPacketAsync(new CS_FD_CREATE_ACK
+                {
+                    Unused = 0,
+                    Uk2 = 1235,
+                    Uk3 = 123,
+                    Uk4 = 12
+                });
+
+                await SendPacketAsync(new CS_FD_CHARS_ACK
+                {
+                    Uk1 = 1, // 1 Allows invite and inventory stuff, 0 disables it. (I thought)
+                    OwnerCharId = 0,
+                    FieldId = 64, // Visually it's + 1.
+                    Uk4 = createAck.Title,
+                    Uk5 = createAck.Password,
+                    Uk6 = createAck.MapId,
+                    Uk7 = createAck.Mode,
+                    Uk8 = 0,
+                    UnusedArray = 0,
+                    Uk10 = createAck.Time,
+                    Uk11 = createAck.Mission,
+                    FlagTresspass = createAck.FlagTresspass, // Effect on "Trespass" and "Observe"
+                    FlagHero = createAck.FlagHero, // Effect on "Hero" and "Switch offense and defense"
+                    FlagHeavy = createAck.FlagHeavy,
+                    PlayerLimit = createAck.PlayerLimit,
+                    Uk16 = 0,
+                    Uk17 = 0,
+                    Uk18 = 0,
+                    IsPowerRoom = 0,
+                    Uk20 =
+                    [
+                        new FieldCharEntry4
+                        {
+                            Uk1 = 0,
+                            Team = 1, // 0 = ?, 1 = Red, 2 = Blue
+                            Position = 0,
+                            
+                            Uk4 = 0, // 0 = Play, 1 = Ready
+                            ConnectionId = 0x7B,
+                            Uk6 = 0,
+                            Uk7 = 0,
+                            Class = 61,
+                            Uk9 = 0,
+                            Uk10 = 0,
+                            UkAA = string.Empty,
+                            NickName = "AeonLucid",
+                            Pride = "Morning",
+                            Uk11 = string.Empty,
+                            Uk11_1 = 0,
+                            Uk12 = 0,
+                            Uk13 = 0,
+                            Uk14 = 0,
+                            Uk15 = 0,
+                            Uk16 = 1, // 0 = Play, 1 = Ready
+                            Uk17 = 0,
+                            Uk18 = [],
+                            Uk19 = [],
+                            Uk20 = 0,
+                            Uk21 = 0,
+                            Uk22 = []
+                        },
+                        new FieldCharEntry4
+                        {
+                            Uk1 = 1,
+                            Team = 2, // 0 = ?, 1 = Red, 2 = Blue
+                            Position = 0,
+                            
+                            Uk4 = 0, // 0 = Play, 1 = Ready
+                            ConnectionId = 0x7C,
+                            Uk6 = 0,
+                            Uk7 = 0,
+                            Class = 61,
+                            Uk9 = 0,
+                            Uk10 = 0,
+                            UkAA = string.Empty,
+                            NickName = "Meow",
+                            Pride = "Morning",
+                            Uk11 = string.Empty,
+                            Uk11_1 = 0,
+                            Uk12 = 0,
+                            Uk13 = 0,
+                            Uk14 = 0,
+                            Uk15 = 0,
+                            Uk16 = 1, // 0 = Play, 1 = Ready
+                            Uk17 = 0,
+                            Uk18 = [],
+                            Uk19 = [],
+                            Uk20 = 0,
+                            Uk21 = 0,
+                            Uk22 = []
+                        }
+                    ],
+                    Uk21 = createAck.ClassMax,
+                    Uk22 = createAck.ClassMin
+                });
+                break;
+            case CS_FD_EXIT_REQ exitReq:
+                Logger.Information("Exiting room {@Room}", exitReq);
+                
+                await SendPacketAsync(new CS_FD_EXIT_ACK
+                {
+                    Uk1 = 0
+                });
+                break;
+            case CS_FD_INITFIELD_REQ:
+                await SendPacketAsync(new CS_FD_INITFIELD_ACK());
                 break;
             case CS_CH_LOGOUT_REQ:
                 await SendPacketAsync(new CS_CH_LOGOUT_ACK());

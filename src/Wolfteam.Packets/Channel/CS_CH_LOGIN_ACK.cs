@@ -9,13 +9,13 @@ public partial class CS_CH_LOGIN_ACK : IWolfPacket
     public uint Uk2 { get; set; }
     public uint Uk3 { get; set; }
     public uint Uk4 { get; set; }
-    public ushort Uk5 { get; set; }
+    public ushort ChannelType { get; set; }
     public uint Uk6 { get; set; }
     /// <summary>
     ///     Boolean
     /// </summary>
-    public byte Uk7 { get; set; }
-    public byte Uk8 { get; set; }
+    public byte IsMuted { get; set; }
+    public byte EventTheme { get; set; }
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.ASCII)]
     public string? Uk9 { get; set; }
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.ASCII)]
