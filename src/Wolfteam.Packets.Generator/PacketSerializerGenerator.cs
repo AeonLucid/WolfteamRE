@@ -127,21 +127,21 @@ public class PacketSerializerGenerator : IIncrementalGenerator
         ident += Constants.DefaultIdent;
 
         // Size
-        builder.AppendFormat("{0}public int Size(ClientVersion version)\n", ident);
+        builder.AppendFormat("{0}public int Size(global::Wolfteam.Packets.ClientVersion version)\n", ident);
         builder.AppendFormat("{0}{{\n", ident);
         BuildMethod(build, builder, ident + Constants.DefaultIdent, new CodeGenSize());
         builder.AppendFormat("{0}}}\n", ident); // Size
         builder.AppendFormat("\n");
 
         // Serialize
-        builder.AppendFormat("{0}public void Serialize(ClientVersion version, ref SpanWriter writer)\n", ident);
+        builder.AppendFormat("{0}public void Serialize(global::Wolfteam.Packets.ClientVersion version, ref global::Wolfteam.Packets.SpanWriter writer)\n", ident);
         builder.AppendFormat("{0}{{\n", ident);
         BuildMethod(build, builder, ident + Constants.DefaultIdent, new CodeGenSerialize());
         builder.AppendFormat("{0}}}\n", ident); // Serialize
         builder.AppendFormat("\n");
 
         // Parse
-        builder.AppendFormat("{0}public bool Deserialize(ClientVersion version, ref SpanReader reader)\n", ident);
+        builder.AppendFormat("{0}public bool Deserialize(global::Wolfteam.Packets.ClientVersion version, ref global::Wolfteam.Packets.SpanReader reader)\n", ident);
         builder.AppendFormat("{0}{{\n", ident);
         BuildMethod(build, builder, ident + Constants.DefaultIdent, new CodeGenDeserialize());
         builder.AppendFormat("{0}}}\n", ident); // Deserialize

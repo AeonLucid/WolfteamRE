@@ -28,6 +28,11 @@ public ref struct SpanReader
         _data = _data.Slice(count);
     }
     
+    public void Skip(int count)
+    {
+        Advance(count);
+    }
+    
     public bool TryReadU8(out byte value)
     {
         if (_data.Length < 1)
