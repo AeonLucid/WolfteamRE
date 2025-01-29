@@ -41,7 +41,7 @@ public partial class FieldListEntry : IWolfPacket
     
     public byte Uk16 { get; set; }
     
-    public byte Uk17 { get; set; }
+    public byte IsPowerRoom { get; set; }
     
     public byte ClassMax { get; set; }
     

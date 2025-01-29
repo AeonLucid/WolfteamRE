@@ -6,9 +6,9 @@ namespace Wolfteam.Server.Crypto;
 
 /// <summary>
 ///     Blowfish table generated for wolfteam with key "TEAMWOLF".
-///     Seems non-standard key generation, so I just dumped the tables.
+///     Non-standard key generation, so I just dumped the tables.
 /// </summary>
-internal static class BlowfishTable
+internal static class BlowfishTableWolf
 {
     public static readonly uint[] P =
     [

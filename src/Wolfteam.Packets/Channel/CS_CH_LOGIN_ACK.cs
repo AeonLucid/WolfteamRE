@@ -5,8 +5,8 @@ namespace Wolfteam.Packets.Channel;
 [WolfteamPacket(PacketId.CS_CH_LOGIN_ACK)]
 public partial class CS_CH_LOGIN_ACK : IWolfPacket
 {
-    public ushort Uk1 { get; set; }
-    public uint Uk2 { get; set; }
+    public ushort SessionId { get; set; }
+    public uint SessionKey { get; set; }
     public uint Uk3 { get; set; }
     public uint Uk4 { get; set; }
     public ushort ChannelType { get; set; }

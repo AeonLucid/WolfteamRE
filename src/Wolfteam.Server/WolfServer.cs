@@ -11,15 +11,15 @@ namespace Wolfteam.Server;
 
 public class WolfServer<T> : IDisposable where T : WolfConnection
 {
-    private static readonly ILogger Logger = Log.ForContext("SourceContext", "WolfServer");
-    
+    private readonly ILogger _logger;
     private readonly int _port;
     private readonly Socket _socket;
 
     private bool _disposed;
     
-    public WolfServer(int port)
+    public WolfServer(ILogger logger, int port)
     {
+        _logger = logger;
         _port = port;
         _socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
         
@@ -33,23 +33,34 @@ public class WolfServer<T> : IDisposable where T : WolfConnection
         _socket.Bind(new IPEndPoint(IPAddress.Any, _port));
         _socket.Listen(10);
         
-        Logger.Information("Listening on port {Port}", _port);
+        _logger.Information("Listening on port {Port}", _port);
     }
 
     public async Task AcceptAsync(CancellationToken cancellationToken)
     {
         var client = await _socket.AcceptAsync(cancellationToken);
         var clientId = Guid.NewGuid();
-        var connection = (WolfConnection) Activator.CreateInstance(typeof(T), clientId, client)!;
+        var connection = OnConnectionAccepted(clientId, client);
 
         if (!Connections.TryAdd(clientId, connection))
         {
             throw new InvalidOperationException("Failed to add connection to connections dictionary");
         }
         
-        Logger.Information("Accepted connection {ConnectionId}", clientId);
-
+        _logger.Information("Accepted connection {ConnectionId}", clientId);
+        
+        connection.ConnectionClosed += OnConnectionClosed;
         connection.Start();
+    }
+    
+    protected virtual T OnConnectionAccepted(Guid clientId, Socket socket)
+    {
+        return (T) Activator.CreateInstance(typeof(T), clientId, socket)!;
+    }
+
+    protected virtual Task OnConnectionClosed(WolfConnection connection)
+    {
+        return Task.CompletedTask;
     }
 
     public virtual void Dispose()

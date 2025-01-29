@@ -25,7 +25,7 @@ public abstract class WolfGameConnection : WolfConnection
 
     public abstract ValueTask HandlePacketAsync(PacketId id, IWolfPacket packet);
     
-    protected async ValueTask SendPacketAsync(IWolfPacket packet)
+    public async ValueTask SendPacketAsync(IWolfPacket packet, ErrorCode errorCode = 0)
     {
         // Calculate sizes.
         var payloadSizeExtra = 1; // ErrorCode (??)
@@ -67,7 +67,7 @@ public abstract class WolfGameConnection : WolfConnection
         var payloadWriter = new SpanWriter(buffer.Slice(PacketHeader.Size, payloadSize));
         
         // - error code
-        payloadWriter.WriteU8(0);
+        payloadWriter.WriteU8((byte)errorCode);
         
         // - actual payload
         packet.Serialize(_clientVersion, ref payloadWriter);

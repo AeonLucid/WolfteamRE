@@ -20,7 +20,7 @@ Console.CancelKeyPress += (_, args) =>
     cancelTokenSource.Cancel();
 };
 
-using var server = new WolfServer<LoginConnection>(8444);
+using var server = new LoginServer(8444);
 
 server.Listen();
 

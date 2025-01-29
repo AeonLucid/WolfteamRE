@@ -19,7 +19,7 @@ public partial class CS_FD_CREATE_REQ : IWolfPacket
     
     public uint Mode { get; set; }
     
-    public byte Uk4 { get; set; }
+    public byte Wins { get; set; }
     
     public byte Uk5 { get; set; }
     

@@ -11,31 +11,40 @@ using Wolfteam.Packets.Channel;
 using Wolfteam.Packets.Channel.Data;
 using Wolfteam.Packets.Datagram;
 using Wolfteam.Packets.Unknown;
+using Wolfteam.Server.Channel.State;
 
 namespace Wolfteam.Server.Channel;
 
 public class ChannelConnection : WolfGameConnection
 {
     private static readonly ILogger Logger = Log.ForContext<ChannelConnection>();
-    private static readonly ClientVersion ClientVersion = ClientVersion.IS_854;
     
-    public ChannelConnection(Guid id, Socket client) : base(Logger, ClientVersion, id, client)
+    private readonly ChannelState _state;
+    
+    public ChannelConnection(Guid id, Socket client, ClientVersion clientVersion, ChannelState state) : base(Logger, clientVersion, id, client)
     {
-        TcpAddress = (IPEndPoint?)client.RemoteEndPoint;
+        _state = state;
     }
 
-    public IPEndPoint? TcpAddress { get; set; }
-    public IPEndPoint? UdpAddress { get; set; }
+    public PlayerSession? Player { get; private set; }
 
     public override async ValueTask HandlePacketAsync(PacketId id, IWolfPacket packet)
     {
         switch (packet)
         {
             case CS_CH_LOGIN_REQ loginReq:
+                if (string.IsNullOrEmpty(loginReq.Username))
+                {
+                    Close("Login username is empty");
+                    return;
+                }
+                
+                Player = _state.AddPlayer(this, loginReq.Username);
+                
                 await SendPacketAsync(new CS_CH_LOGIN_ACK
                 {
-                    Uk1 = 0x7B,
-                    Uk2 = 0x6F855,
+                    SessionId = Player.SessionId,
+                    SessionKey = Player.SessionKey,
                     Uk3 = 1,
                     Uk4 = 1,
                     ChannelType = 0, // 0 = lobby, 1 = pride battle championship lobby, 2 = pride battle lobby, 3 = ranking, 4 = lobby with ranks
@@ -59,41 +68,69 @@ public class ChannelConnection : WolfGameConnection
                     Uk3 = "BetaWTWT",
                 });
                 break;
-            case CS_UD_UDPADDR_REQ:
-                await SendPacketAsync(new CS_CH_UDPADDR_ACK());
-                break;
-            case CS_CK_UDPSUCCESS_REQ:
-                if (TcpAddress == null || UdpAddress == null)
+            case CS_UD_UDPADDR_REQ udpAddrReq:
+                if (Player == null)
                 {
-                    Logger.Warning("Missing Tcp/Udp address for {@Packet}", packet);
+                    Close("Player is null");
                     return;
                 }
                 
-                var tcpIp = TcpAddress.Address.GetAddressBytes();
-                var tcpPort = (ushort)TcpAddress.Port;
+                Player.UdpConnectionDetails.LocalEndPoint = new IPEndPoint(udpAddrReq.IpAddress, udpAddrReq.Port);
                 
-                var udpIp = UdpAddress.Address.GetAddressBytes();
-                var udpPort = (ushort)UdpAddress.Port;
-
-                var zzz = BinaryPrimitives.ReadUInt32LittleEndian(tcpIp);
+                await SendPacketAsync(new CS_CH_UDPADDR_ACK());
+                break;
+            case CS_CK_UDPSUCCESS_REQ:
+            {
+                if (Player == null)
+                {
+                    Close("Player is null");
+                    return;
+                }
+                
+                if (Player.UdpConnectionDetails.RemoteEndPoint == null)
+                {
+                    Close("UdpConnectionDetails.RemoteEndPoint is null");
+                    return;
+                }
+                
+                if (Player.UdpConnectionDetails.LocalEndPoint == null)
+                {
+                    Close("UdpConnectionDetails.LocalEndPoint is null");
+                    return;
+                }
+                
+                var remoteIp = Player.UdpConnectionDetails.RemoteEndPoint.Address.GetAddressBytes();
+                var remotePort = (ushort)Player.UdpConnectionDetails.RemoteEndPoint.Port;
+                
+                var localIp = Player.UdpConnectionDetails.LocalEndPoint.Address.GetAddressBytes();
+                var localPort = (ushort)Player.UdpConnectionDetails.LocalEndPoint.Port;
+                
+                // Debug IPs.
+                Logger.Debug("Remote UDP {IpEndPoint}", Player.UdpConnectionDetails.RemoteEndPoint);
+                Logger.Debug("Local UDP {IpEndPoint}", Player.UdpConnectionDetails.LocalEndPoint);
                 
                 await SendPacketAsync(new CS_CK_UDPSUCCESS_ACK
                 {
-                    // Tcp ip/port
-                    Uk1 = BinaryPrimitives.ReadUInt32LittleEndian(tcpIp),
-                    Uk2 = tcpPort,
-                    // Udp ip/port
-                    Uk3 = BinaryPrimitives.ReadUInt32LittleEndian(udpIp),
-                    Uk4 = udpPort
+                    RemoteIp = BinaryPrimitives.ReadUInt32LittleEndian(remoteIp),
+                    RemotePort = remotePort,
+                    LocalIp = BinaryPrimitives.ReadUInt32LittleEndian(localIp),
+                    LocalPort = localPort
                 });
                 break;
+            }
             case CS_CK_ALIVE_REQ:
                 // Do nothing.
                 break;
             case CS_CH_USERINFO_REQ:
+                if (Player == null)
+                {
+                    Close("Player is null");
+                    return;
+                }
+                
                 await SendPacketAsync(new CS_CH_USERINFO_ACK
                 {
-                    NickName = "AeonLucid",
+                    NickName = Player.Username,
                     Uk2 = 1,
                     Uk3 = 2,
                     Uk4 = 3,
@@ -273,62 +310,59 @@ public class ChannelConnection : WolfGameConnection
                 break;
             case CS_FD_FIELDLIST_REQ fieldlistReq:
                 Logger.Information("Requesting field list {@FieldList}", fieldlistReq);
-            
+
+                var fields = _state.GetFields();
+                var fieldEntries = fields.Select(x => new FieldListEntry
+                {
+                    FieldId = x.Id,
+                    Title = x.Title,
+                    IsProtected = (byte)(string.IsNullOrEmpty(x.Password) ? 0 : 1),
+                    IsPlaying = 0,
+                    Map = x.MapId,
+                    Mode = x.Mode,
+                    Uk7 = x.Wins, // Maybe SubMode?
+                    Time = x.Time,
+                    Mission = x.Mission,
+                    Uk10 = x.FlagTresspass, // TODO: Check tresspass
+                    Uk11 = x.FlagHero,
+                    Uk12 = x.FlagHeavy,
+                    PlayerMax = x.PlayerLimit,
+                    PlayerCount = x.PlayerCount,
+                    Uk15 = 0,
+                    Uk16 = 0,
+                    IsPowerRoom = x.IsPowerRoom,
+                    ClassMax = x.ClassMax,
+                    ClassMin = x.ClassMin
+                }).ToArray();
+                
                 await SendPacketAsync(new CS_FD_FIELDLIST_ACK
                 {
                     Uk1 = 3,
                     Uk2 = 5,
-                    Uk3 = [
-                        new FieldListEntry
-                        {
-                            FieldId = 0x111,
-                            Title = "Game 1",
-                            IsProtected = 0,
-                            IsPlaying = 0,
-                            Map = 60,
-                            Mode = 2,
-                            Uk7 = 1, // Maybe SubMode?
-                            Time = 600,
-                            Mission = 100,
-                            Uk10 = 0,
-                            Uk11 = 0,
-                            Uk12 = 0,
-                            PlayerMax = 16,
-                            PlayerCount = 0,
-                            Uk15 = 0,
-                            Uk16 = 0,
-                            Uk17 = 0, // 1 = green room name
-                            ClassMax = 0,
-                            ClassMin = 0x3D
-                        },
-                        new FieldListEntry
-                        {
-                            FieldId = 0x112,
-                            Title = "Game 2",
-                            IsProtected = 0,
-                            IsPlaying = 0,
-                            Map = 60,
-                            Mode = 2,
-                            Uk7 = 1, // Maybe SubMode?
-                            Time = 600,
-                            Mission = 100,
-                            Uk10 = 1,
-                            Uk11 = 1,
-                            Uk12 = 1,
-                            PlayerMax = 16,
-                            PlayerCount = 0,
-                            Uk15 = 1, // 0 = white row, 1 = gray
-                            Uk16 = 0,
-                            Uk17 = 0, // 0 = white/gray, 1 = green room name
-                            ClassMax = 0,
-                            ClassMin = 0x3D
-                        }
-                    ]
+                    Uk3 = fieldEntries
                 });
                 break;
             case CS_FD_CREATE_REQ createAck:
-                Logger.Information("Creating room {@Room}", createAck);
+            {
+                if (Player == null)
+                {
+                    Close("Player is null");
+                    return;
+                }
                 
+                Logger.Information("Creating room {@Room}", createAck);
+
+                // Create field.
+                var field = _state.CreateField(createAck);
+                
+                // Add player to field.
+                if (!await field.AddPlayer(Player))
+                {
+                    Close("Failed to add player to newly created field");
+                    return;
+                }
+                
+                // Acknowledge creation.
                 await SendPacketAsync(new CS_FD_CREATE_ACK
                 {
                     Unused = 0,
@@ -337,105 +371,193 @@ public class ChannelConnection : WolfGameConnection
                     Uk4 = 12
                 });
 
-                await SendPacketAsync(new CS_FD_CHARS_ACK
-                {
-                    Uk1 = 1, // 1 Allows invite and inventory stuff, 0 disables it. (I thought)
-                    OwnerCharId = 0,
-                    FieldId = 64, // Visually it's + 1.
-                    Uk4 = createAck.Title,
-                    Uk5 = createAck.Password,
-                    Uk6 = createAck.MapId,
-                    Uk7 = createAck.Mode,
-                    Uk8 = 0,
-                    UnusedArray = 0,
-                    Uk10 = createAck.Time,
-                    Uk11 = createAck.Mission,
-                    FlagTresspass = createAck.FlagTresspass, // Effect on "Trespass" and "Observe"
-                    FlagHero = createAck.FlagHero, // Effect on "Hero" and "Switch offense and defense"
-                    FlagHeavy = createAck.FlagHeavy,
-                    PlayerLimit = createAck.PlayerLimit,
-                    Uk16 = 0,
-                    Uk17 = 0,
-                    Uk18 = 0,
-                    IsPowerRoom = 0,
-                    Uk20 =
-                    [
-                        new FieldCharEntry4
-                        {
-                            Uk1 = 0,
-                            Team = 1, // 0 = ?, 1 = Red, 2 = Blue
-                            Position = 0,
-                            
-                            Uk4 = 0, // 0 = Play, 1 = Ready
-                            ConnectionId = 0x7B,
-                            Uk6 = 0,
-                            Uk7 = 0,
-                            Class = 61,
-                            Uk9 = 0,
-                            Uk10 = 0,
-                            UkAA = string.Empty,
-                            NickName = "AeonLucid",
-                            Pride = "Morning",
-                            Uk11 = string.Empty,
-                            Uk11_1 = 0,
-                            Uk12 = 0,
-                            Uk13 = 0,
-                            Uk14 = 0,
-                            Uk15 = 0,
-                            Uk16 = 1, // 0 = Play, 1 = Ready
-                            Uk17 = 0,
-                            Uk18 = [],
-                            Uk19 = [],
-                            Uk20 = 0,
-                            Uk21 = 0,
-                            Uk22 = []
-                        },
-                        new FieldCharEntry4
-                        {
-                            Uk1 = 1,
-                            Team = 2, // 0 = ?, 1 = Red, 2 = Blue
-                            Position = 0,
-                            
-                            Uk4 = 0, // 0 = Play, 1 = Ready
-                            ConnectionId = 0x7C,
-                            Uk6 = 0,
-                            Uk7 = 0,
-                            Class = 61,
-                            Uk9 = 0,
-                            Uk10 = 0,
-                            UkAA = string.Empty,
-                            NickName = "Meow",
-                            Pride = "Morning",
-                            Uk11 = string.Empty,
-                            Uk11_1 = 0,
-                            Uk12 = 0,
-                            Uk13 = 0,
-                            Uk14 = 0,
-                            Uk15 = 0,
-                            Uk16 = 1, // 0 = Play, 1 = Ready
-                            Uk17 = 0,
-                            Uk18 = [],
-                            Uk19 = [],
-                            Uk20 = 0,
-                            Uk21 = 0,
-                            Uk22 = []
-                        }
-                    ],
-                    Uk21 = createAck.ClassMax,
-                    Uk22 = createAck.ClassMin
-                });
+                // Sync characters.
+                await field.SyncCharsAsync();
                 break;
+            }
+            case CS_FD_ENTER_REQ enterReq:
+            {
+                if (Player == null)
+                {
+                    Close("Player is null when entering room");
+                    return;
+                }
+                
+                if (Player.FieldChar != null)
+                {
+                    Close("Player.Field is not null when entering room");
+                    return;
+                }
+
+                // Get field.
+                var field = _state.GetField(enterReq.FieldId);
+                if (field == null)
+                {
+                    await SendPacketAsync(new CS_FD_ENTER_ACK(), ErrorCode.S126_RoomDoesNotExist);
+                    return;
+                }
+                
+                // Check password.
+                var fieldPassword = field.Password;
+                if (!string.IsNullOrEmpty(fieldPassword) && !fieldPassword.Equals(enterReq.Password))
+                {
+                    await SendPacketAsync(new CS_FD_ENTER_ACK(), ErrorCode.S122_InvalidRoomPassword);
+                    return;
+                }
+                
+                // Add player to field.
+                if (!await field.AddPlayer(Player))
+                {
+                    await SendPacketAsync(new CS_FD_ENTER_ACK(), ErrorCode.S125_RoomSlotsFull);
+                    return;
+                }
+                
+                Logger.Information("Entering room {@Room}", enterReq);
+
+                await SendPacketAsync(new CS_FD_ENTER_ACK
+                {
+                    // Only first byte seems to get parsed, not sure what it is.
+                    Uk1 = 0x00,
+                    // Uk1 = 0x7D,
+                    // Uk2 = 0xFFFFFFFF,
+                    // Uk3 = 0xFF,
+                    // Uk4 = 0xFF,
+                    // Uk5 = 0xFFFF,
+                    // Uk6 = 0xFF,
+                    // Uk7 = 0xFF,
+                    // Uk8 = 0xFF,
+                    // Uk9 = 0xFFFFFFFF,
+                    // Uk10 = 0xFFFFFFFF,
+                    // Uk11 = string.Empty,
+                    // Uk12 = Player.Username,
+                    // Uk13 = "Morning",
+                    // Uk14 = string.Empty,
+                });
+                
+                await field.SyncCharsAsync();
+                break;
+            }
             case CS_FD_EXIT_REQ exitReq:
+            {
+                if (Player == null)
+                {
+                    Close("Player is null when exiting room");
+                    return;
+                }
+                
+                if (Player.FieldChar == null)
+                {
+                    Close("Player.Field is null when exiting room");
+                    return;
+                }
+                
                 Logger.Information("Exiting room {@Room}", exitReq);
                 
-                await SendPacketAsync(new CS_FD_EXIT_ACK
-                {
-                    Uk1 = 0
-                });
+                var fieldChar = Player.FieldChar;
+                var field = fieldChar.Field;
+
+                await field.RemovePlayer(fieldChar.Slot);
                 break;
+            }
             case CS_FD_INITFIELD_REQ:
                 await SendPacketAsync(new CS_FD_INITFIELD_ACK());
                 break;
+            case CS_FD_UDPSTART_REQ:
+            {
+                if (Player == null)
+                {
+                    Close("Player is null");
+                    return;
+                }
+                
+                if (Player.FieldChar == null)
+                {
+                    Close("Player.FieldChar is null");
+                    return;
+                }
+                
+                var fieldChar = Player.FieldChar;
+                var field = fieldChar.Field;
+                
+                await SendPacketAsync(new CS_FD_UDPSTART_ACK
+                {
+                    Uk1 = field.OwnerSlot
+                });
+                break;
+            }
+            case CS_FD_CHANGETEAM_REQ changeTeamReq:
+            {
+                if (Player == null)
+                {
+                    Close("Player is null");
+                    return;
+                }
+                
+                if (Player.FieldChar == null)
+                {
+                    Close("Player.FieldChar is null");
+                    return;
+                }
+                
+                var fieldChar = Player.FieldChar;
+                var field = fieldChar.Field;
+
+                await field.ChangeTeam(fieldChar.Slot);
+                break;
+            }
+            case CS_FD_CRM_POPUP_REQ:
+            {
+                await SendPacketAsync(new CS_FD_CRM_POPUP_ACK
+                {
+                    Uk1 = 0x7D,
+                    Uk2_ArraySize = 0
+                });
+                break;
+            }
+            case CS_IN_BUYNOW_ITEMLIST_REQ:
+                await SendPacketAsync(new CS_IN_BUYNOW_ITEMLIST_ACK
+                {
+                    Uk1 = 0,
+                    Uk2 = 0
+                });
+                break;
+            case CS_CN_ADVERTALL_REQ:
+                // TODO: Send CS_CN_CHARS_ACK
+                await SendPacketAsync(new CS_CN_ADVERTALL_ACK
+                {
+                    Uk1 = 0,
+                    Uk2 = [],
+                    Uk3 = 0,
+                    Uk4 = [],
+                    Uk5 = 0,
+                    Uk6 = [],
+                    Uk7 = 0,
+                    Uk8 = []
+                });
+                break;
+            case CS_PR_BATTLERESULT_REQ:
+            {
+                await SendPacketAsync(new CS_PR_BATTLERESULT_ACK());
+                break;
+            }
+            case CS_GI_ITEM_COUNT_REQ:
+            {
+                // TODO: Shows a popup on login, is this normal?
+                // await SendPacketAsync(new CS_GI_ITEM_COUNT_ACK
+                // {
+                //     Uk1 = 1300,
+                //     Uk2 = 14
+                // });
+                break;
+            }
+            case CS_GI_PERIOD_END_REQ:
+            {
+                // await SendPacketAsync(new CS_GI_PERIOD_END_ACK
+                // {
+                //     Uk1_ArraySize = 0
+                // });
+                break;
+            }
             case CS_CH_LOGOUT_REQ:
                 await SendPacketAsync(new CS_CH_LOGOUT_ACK());
                 break;

@@ -8,7 +8,7 @@ namespace Wolfteam.Packets.Channel.Data;
 
 public partial class FieldCharEntry4 : IWolfPacket
 {
-    public byte Uk1 { get; set; }
+    public byte Slot { get; set; }
     
     public uint Unused { get; set; }
     
@@ -46,13 +46,15 @@ public partial class FieldCharEntry4 : IWolfPacket
     
     public ushort Uk11_1 { get; set; }
     
-    public uint Uk12 { get; set; }
+    public uint RemoteIp { get; set; }
     
-    public ushort Uk13 { get; set; }
+    [WolfteamField(BigEndian = true)]
+    public ushort RemotePort { get; set; }
     
-    public uint Uk14 { get; set; }
+    public uint LocalIp { get; set; }
     
-    public ushort Uk15 { get; set; }
+    [WolfteamField(BigEndian = true)]
+    public ushort LocalPort { get; set; }
     
     public byte Uk16 { get; set; }
     

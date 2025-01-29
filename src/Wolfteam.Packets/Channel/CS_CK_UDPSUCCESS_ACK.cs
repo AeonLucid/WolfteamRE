@@ -9,8 +9,8 @@ namespace Wolfteam.Packets.Channel;
 [WolfteamPacket(PacketId.CS_CK_UDPSUCCESS_ACK)]
 public partial class CS_CK_UDPSUCCESS_ACK : IWolfPacket
 {
-    public uint Uk1 { get; set; }
-    public ushort Uk2 { get; set; }
-    public uint Uk3 { get; set; }
-    public ushort Uk4 { get; set; }
+    public uint RemoteIp { get; set; }
+    public ushort RemotePort { get; set; }
+    public uint LocalIp { get; set; }
+    public ushort LocalPort { get; set; }
 }

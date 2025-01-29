@@ -1,13 +1,13 @@
 ﻿// Copyright (c) AeonLucid. All Rights Reserved.
 // Licensed under the AGPL-3.0 License.
-// Solution Wolfteam, Date 2025-01-27.
+// Solution Wolfteam, Date 2025-01-29.
 
 using Wolfteam.Packets.Attributes;
 
 namespace Wolfteam.Packets.Channel;
 
-[WolfteamPacket(PacketId.CS_FD_EXIT_ACK)]
-public partial class CS_FD_EXIT_ACK : IWolfPacket
+[WolfteamPacket(PacketId.CS_PR_BATTLERESULT_ACK)]
+public partial class CS_PR_BATTLERESULT_ACK : IWolfPacket
 {
-    public byte Slot { get; set; }
+    // TODO: Add data
 }

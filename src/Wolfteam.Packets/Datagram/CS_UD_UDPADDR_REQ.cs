@@ -8,8 +8,10 @@ namespace Wolfteam.Packets.Datagram;
 
 public partial class CS_UD_UDPADDR_REQ : IWolfPacket
 {
-    public ushort Uk1 { get; set; }
-    public uint Uk2 { get; set; }
+    public ushort SessionId { get; set; }
+    
+    public uint SessionKey { get; set; }
+    
     public uint IpAddress { get; set; }
     
     [WolfteamField(BigEndian = true)]

@@ -12,16 +12,34 @@ namespace Wolfteam.Server.Crypto;
 /// </summary>
 public class Blowfish
 {
+    private readonly BlowfishMode _mode;
     private readonly uint[] _p;
     private readonly uint[,] _s;
     
     /// <summary>
     /// Initializes a BlowfishContext instance.
     /// </summary>
-    public Blowfish()
+    public Blowfish(BlowfishMode mode)
     {
-        _p = BlowfishTable.P;
-        _s = BlowfishTable.S;
+        _mode = mode;
+
+        switch (mode)
+        {
+            case BlowfishMode.Default:
+                _p = BlowfishTableDefault.P;
+                _s = BlowfishTableDefault.S;
+                break;
+            case BlowfishMode.Relay:
+                _p = BlowfishTableRelay.P;
+                _s = BlowfishTableRelay.S;
+                break;
+            case BlowfishMode.Channel:
+                _p = BlowfishTableWolf.P;
+                _s = BlowfishTableWolf.S;
+                break;
+            default:
+                throw new ArgumentException("Invalid mode", nameof(mode));
+        }
     }
 
     /// <summary>
@@ -137,7 +155,20 @@ public class Blowfish
         var c = (byte)((number >> 16) & 0xFF);
         var d = (byte)((number >> 24) & 0xFF);
         
-        return (_s[3, a] + _s[2, b]) ^
-               (_s[1, c] + _s[0, d]);
+        switch (_mode)
+        {
+            case BlowfishMode.Relay:
+                var o1 = _s[0, d] + _s[1, c];
+                var o2 = _s[2, b] ^ o1;
+                var o3 = _s[3, a] + o2;
+        
+                return o3;
+            case BlowfishMode.Default:
+            case BlowfishMode.Channel:
+                return (_s[3, a] + _s[2, b]) ^
+                       (_s[1, c] + _s[0, d]);
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
     }
 }

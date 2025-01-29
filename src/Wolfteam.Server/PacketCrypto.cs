@@ -9,7 +9,7 @@ namespace Wolfteam.Server;
 
 public static class PacketCrypto
 {
-    private static readonly Blowfish Blowfish = new();
+    private static readonly Blowfish Blowfish = new(BlowfishMode.Channel);
     
     /// <summary>
     ///     Decrypts and validates the packet header.

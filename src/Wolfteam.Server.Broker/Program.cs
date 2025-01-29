@@ -23,7 +23,7 @@ Console.CancelKeyPress += (_, args) =>
     cancelTokenSource.Cancel();
 };
 
-using var server = new WolfServer<BrokerConnection>(40706);
+using var server = new BrokerServer(40706);
 
 server.Listen();
 

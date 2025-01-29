@@ -23,7 +23,7 @@ public abstract class WolfConnection : IDisposable
     private bool _disposed;
     private Task? connectionTask;
 
-    public WolfConnection(ILogger logger, Guid id, Socket client)
+    protected WolfConnection(ILogger logger, Guid id, Socket client)
     {
         _logger = logger;
         _id = id;
@@ -45,10 +45,29 @@ public abstract class WolfConnection : IDisposable
         var receiveTask = ReceiveAsync();
         var handleTask = ProcessAsync();
         
-        connectionTask = Task.WhenAll(sendTask, receiveTask, handleTask).ContinueWith(_ =>
+        connectionTask = Task.WhenAll(sendTask, receiveTask, handleTask).ContinueWith(OnStopped);
+    }
+
+    protected void Close(string? reason = null)
+    {
+        _logger.Information("Force closing connection {ConnectionId}: {Reason}", _id, reason);
+        
+        Shutdown();
+    }
+
+    private async Task OnStopped(Task _)
+    {
+        try
+        {
+            if (ConnectionClosed != null)
+            {
+                await ConnectionClosed.Invoke(this);
+            }
+        }
+        finally
         {
             Dispose();
-        });
+        }
     }
 
     private async Task SendAsync()
@@ -244,6 +263,15 @@ public abstract class WolfConnection : IDisposable
         {
             // ignored
         }
+
+        try
+        {
+            _client.Dispose();
+        }
+        catch (Exception)
+        {
+            // ignored
+        }
     }
 
     public void Dispose()
@@ -267,4 +295,7 @@ public abstract class WolfConnection : IDisposable
             // ignored
         }
     }
+    
+    public delegate Task ConnectionClosedHandler(WolfConnection connection);
+    public event ConnectionClosedHandler? ConnectionClosed;
 }

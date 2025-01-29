@@ -9,8 +9,8 @@ namespace Wolfteam.Packets.Channel;
 [WolfteamPacket(PacketId.CS_FD_ENTER_REQ)]
 public partial class CS_FD_ENTER_REQ : IWolfPacket
 {
-    public ushort Uk1 { get; set; }
+    public ushort FieldId { get; set; }
     
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.Unicode)]
-    public string? Uk2 { get; set; }
+    public string? Password { get; set; }
 }

@@ -13,7 +13,7 @@ var cancelToken = cancelTokenSource.Token;
 
 // Logging.
 Log.Logger = SerilogConfig.CreateDefault()
-    .MinimumLevel.Override(typeof(ChannelConnection).FullName!, LogEventLevel.Debug)
+    // .MinimumLevel.Override(typeof(ChannelConnection).FullName!, LogEventLevel.Debug)
     .CreateLogger();
 
 Console.CancelKeyPress += (_, args) =>

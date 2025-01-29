@@ -416,8 +416,8 @@ public class BrokerConnection : WolfGameConnection
                     Relays = Enumerable.Range(0, 20).Select(relayId => new RelayEntry
                     {
                         Id = (byte)relayId,
-                        Address = 0x0100007F,
-                        Port = 16540,
+                        Address = 0x7F000001,
+                        Port = 16540, // 40000 in big endian.
                         Padding = 0
                     }).ToArray()
                 });
