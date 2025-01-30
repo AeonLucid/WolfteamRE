@@ -288,10 +288,38 @@ public class Field
         }
         
         // TODO: Improve this, also change slot statuses (See CS_FD_CHANGESLOTSTATUS_ACK).
+        foreach (var (_, value) in _chars)
+        {
+            await SendPacketAsync(new CS_FD_CHANGESLOTSTATUS_ACK
+            {
+                Slot = value.Slot,
+                Status = 3
+            });
+        }
+        
         await SendPacketAsync(new CS_FD_STARTGAME_ACK
         {
             Uk1 = 0,
             Uk2 = 0
+        });
+    }
+
+    public async Task StartRoundAsync(FieldChar sender)
+    {
+        await sender.Player.Connection.SendPacketAsync(new CS_FD_STARTROUND_ACK
+        {
+            Uk1 = 1,
+            Uk2 = 600,
+            Uk3 = 0,
+            Uk4 = 0,
+            Uk5 = []
+        });
+
+        // Status 4 makes player appear in the ingame leaderboard.
+        await SendPacketAsync(new CS_FD_CHANGESLOTSTATUS_ACK
+        {
+            Slot = sender.Slot,
+            Status = 4,
         });
     }
     
@@ -325,14 +353,57 @@ public class Field
             Pride = "Morning",
             Uk14 = string.Empty,
             Uk15 = 0,
-            Uk16 = 0,
-            Uk17 = [],
-            Uk18 = [],
+            Uk16 = [
+                new FieldCharEntry4_Uk16
+                {
+                    Uk1 = 0,
+                    Uk10 = 2001,
+                },
+                new FieldCharEntry4_Uk16
+                {
+                    Uk1 = 1,
+                    Uk10 = 2001,
+                },
+                new FieldCharEntry4_Uk16
+                {
+                    Uk1 = 2,
+                    Uk10 = 2001,
+                },
+                new FieldCharEntry4_Uk16
+                {
+                    Uk1 = 3,
+                    Uk10 = 2001,
+                }
+            ],
+            Uk17 = [
+                30006,
+                30006,
+            ],
+            Uk18 = [
+                30005,
+                30005,
+            ],
             Uk19 = 0,
-            Uk20 = 0,
+            Uk20 = 0x33,
             Uk21 = 0,
             Uk22 = 0,
-            Uk27_ArraySize = 0,
+            Uk27 = [
+                new FieldCharEntry4_Sub
+                {
+                    Uk1 = 0,
+                    Uk2 = 0
+                },
+                new FieldCharEntry4_Sub
+                {
+                    Uk1 = 1,
+                    Uk2 = 0
+                },
+                new FieldCharEntry4_Sub
+                {
+                    Uk1 = 2,
+                    Uk2 = 0
+                }
+            ],
         };
         
         var udp = newChar.Player.UdpConnectionDetails;
@@ -386,12 +457,55 @@ public class Field
                 Uk11 = string.Empty,
                 Uk11_1 = 0,
                 Uk16 = 1, // 0 = Play, 1 = Ready
-                Uk17 = 0,
-                Uk18 = [],
-                Uk19 = [],
+                Uk17 = [
+                    new FieldCharEntry4_Uk16
+                    {
+                        Uk1 = 0,
+                        Uk10 = 2001,
+                    },
+                    new FieldCharEntry4_Uk16
+                    {
+                        Uk1 = 1,
+                        Uk10 = 2001,
+                    },
+                    new FieldCharEntry4_Uk16
+                    {
+                        Uk1 = 2,
+                        Uk10 = 2001,
+                    },
+                    new FieldCharEntry4_Uk16
+                    {
+                        Uk1 = 3,
+                        Uk10 = 2001,
+                    }
+                ],
+                Uk18 = [
+                    30006,
+                    30006,
+                ],
+                Uk19 = [
+                    30005,
+                    30005,
+                ],
                 Uk20 = 0,
-                Uk21 = 0,
-                Uk22 = []
+                Uk21 = 0x33,
+                Uk22 = [
+                    new FieldCharEntry4_Sub
+                    {
+                        Uk1 = 0,
+                        Uk2 = 0
+                    },
+                    new FieldCharEntry4_Sub
+                    {
+                        Uk1 = 1,
+                        Uk2 = 0
+                    },
+                    new FieldCharEntry4_Sub
+                    {
+                        Uk1 = 2,
+                        Uk2 = 0
+                    }
+                ]
             };
 
             var udp = value.Player.UdpConnectionDetails;

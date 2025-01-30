@@ -28,8 +28,41 @@ public class ChannelConnection : WolfGameConnection
 
     public PlayerSession? Player { get; private set; }
 
+    private async ValueTask<bool> HandleGamePacketAsync(IWolfPacket packet)
+    {
+        switch (packet)
+        {
+            case CS_FD_STARTROUND_REQ:
+            {
+                // Handled by game packet handler.
+                if (Player == null)
+                {
+                    Close("Player is null when entering room");
+                    return true;
+                }
+            
+                var fieldChar = Player.FieldChar;
+                if (fieldChar == null)
+                {
+                    Close("Player.FieldChar is null");
+                    return true;
+                }
+            
+                await fieldChar.Field.StartRoundAsync(fieldChar);
+                return true;
+            }
+        }
+
+        return false;
+    }
+    
     public override async ValueTask HandlePacketAsync(PacketId id, IWolfPacket packet)
     {
+        if (await HandleGamePacketAsync(packet))
+        {
+            return;
+        }
+        
         switch (packet)
         {
             case CS_CH_LOGIN_REQ loginReq:
@@ -554,6 +587,12 @@ public class ChannelConnection : WolfGameConnection
                 // {
                 //     Uk1_ArraySize = 0
                 // });
+                break;
+            }
+            case CS_IN_CHANGE_ITEM_IN_GAME_REQ:
+            {
+                // Sent while in game.
+                await SendPacketAsync(new CS_IN_CHANGE_ITEM_IN_GAME_ACK());
                 break;
             }
             case CS_CH_LOGOUT_REQ:

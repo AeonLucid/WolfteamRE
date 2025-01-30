@@ -3,6 +3,7 @@
 // Solution Wolfteam, Date 2025-01-29.
 
 using Wolfteam.Packets.Attributes;
+using Wolfteam.Packets.Channel.Data;
 
 namespace Wolfteam.Packets.Channel;
 
@@ -51,7 +52,8 @@ public partial class CS_FD_ENTER_ACK : IWolfPacket
     ///     Limited to >= 4, investigate later.
     ///     Hardcode to 0 for now.
     /// </summary>
-    public byte Uk16 { get; set; }
+    [WolfteamField(LengthSize = 1)]
+    public FieldCharEntry4_Uk16[]? Uk16 { get; set; }
     
     [WolfteamField(LengthSize = 1)]
     public ushort[]? Uk17 { get; set; }
@@ -77,5 +79,6 @@ public partial class CS_FD_ENTER_ACK : IWolfPacket
     [WolfteamField(BigEndian = true)]
     public ushort LocalPort { get; set; }
     
-    public byte Uk27_ArraySize { get; set; }
+    [WolfteamField(LengthSize = 1)]
+    public FieldCharEntry4_Sub[]? Uk27 { get; set; }
 }
