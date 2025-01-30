@@ -127,7 +127,7 @@ public class Field
         return position;
     }
 
-    public async Task<bool> AddPlayer(PlayerSession player)
+    public async Task<bool> AddPlayer(PlayerSession player, FieldAddReason reason)
     {
         await _fieldLock.WaitAsync();
 
@@ -163,7 +163,23 @@ public class Field
                 OwnerSlot = slot.Value;
             }
             
+            // Create association.
             player.FieldChar = fieldChar;
+            
+            // Proper response.
+            if (reason == FieldAddReason.Create)
+            {
+                // Acknowledge creation to player.
+                await SendCreateAckAsync(fieldChar);
+            } 
+            else if (reason == FieldAddReason.Enter)
+            {
+                // Acknowledge entry to entire room.
+                await SendEnterAckAsync(fieldChar);
+            }
+            
+            // Sync characters to the new player.
+            await SendCharsAsync(fieldChar);
             return true;
         }
         finally
@@ -203,7 +219,12 @@ public class Field
         }
     }
     
-    public async Task ChangeTeam(byte slot)
+    /// <summary>
+    ///     Change the team of a player.
+    /// </summary>
+    /// <param name="slot">Slot of the player.</param>
+    /// <returns>Whether an acknowledgement was sent to the client.</returns>
+    public async Task<bool> ChangeTeam(byte slot)
     {
         await _fieldLock.WaitAsync();
 
@@ -211,7 +232,7 @@ public class Field
         {
             if (!_chars.TryGetValue(slot, out var fieldChar))
             {
-                return;
+                return false;
             }
             
             // Move player.
@@ -219,7 +240,8 @@ public class Field
             var teamPos = FindPosition(teamTarget);
             if (teamPos == null)
             {
-                return;
+                await fieldChar.Player.Connection.SendPacketAsync(new CS_FD_CHANGETEAM_ACK(), ErrorCode.S182_NotEnoughSpaceForTeamChange);
+                return true;
             }
             
             fieldChar.Team = teamTarget;
@@ -231,109 +253,198 @@ public class Field
                 Team = (byte)fieldChar.Team,
                 Position = fieldChar.Position
             });
+
+            return true;
         }
         finally
         {
             _fieldLock.Release();
         }
     }
+
+    public async Task StartUdpAsync(FieldChar fChar)
+    {
+        await SendPacketAsync(new CS_FD_UDPSTART_ACK
+        {
+            Slot = fChar.Slot
+        });
+    }
+
+    public async Task ReadyUdpAsync(FieldChar fChar, byte ready)
+    {
+        await SendPacketAsync(new CS_FD_UDPREADY_ACK
+        {
+            Slot = fChar.Slot,
+            Ready = ready
+        });
+    }
+
+    public async Task StartGameAsync(FieldChar sender)
+    {
+        if (sender.Slot != OwnerSlot)
+        {
+            await sender.Player.Connection.SendPacketAsync(new CS_FD_STARTGAME_ACK(), ErrorCode.S203_RoomMastersOnly);
+            return;
+        }
+        
+        // TODO: Improve this, also change slot statuses (See CS_FD_CHANGESLOTSTATUS_ACK).
+        await SendPacketAsync(new CS_FD_STARTGAME_ACK
+        {
+            Uk1 = 0,
+            Uk2 = 0
+        });
+    }
+    
+    private async Task SendCreateAckAsync(FieldChar newChar)
+    {
+        await newChar.Player.Connection.SendPacketAsync(new CS_FD_CREATE_ACK
+        {
+            Unused = 0,
+            Uk2 = 0,
+            Uk3 = 0,
+            Uk4 = 0x3D
+        });
+    }
+
+    private async Task SendEnterAckAsync(FieldChar newChar)
+    {
+        var enterAck = new CS_FD_ENTER_ACK
+        {
+            Slot = newChar.Slot,
+            Unused3 = 0,
+            Team = (byte)newChar.Team,
+            Position = newChar.Position,
+            ConnectionId = newChar.Player.SessionId,
+            Uk6 = 0,
+            Uk7 = 0,
+            Class = 61,
+            Uk9 = 0,
+            Uk10 = 0,
+            Uk11 = string.Empty,
+            NickName = newChar.Player.Username,
+            Pride = "Morning",
+            Uk14 = string.Empty,
+            Uk15 = 0,
+            Uk16 = 0,
+            Uk17 = [],
+            Uk18 = [],
+            Uk19 = 0,
+            Uk20 = 0,
+            Uk21 = 0,
+            Uk22 = 0,
+            Uk27_ArraySize = 0,
+        };
+        
+        var udp = newChar.Player.UdpConnectionDetails;
+        if (udp.RemoteEndPoint != null)
+        {
+            var remoteIp = udp.RemoteEndPoint.Address.GetAddressBytes();
+            var remotePort = (ushort)udp.RemoteEndPoint.Port;
+                
+            enterAck.RemoteIp = BinaryPrimitives.ReadUInt32LittleEndian(remoteIp);
+            enterAck.RemotePort = remotePort;
+        }
+
+        if (udp.LocalEndPoint != null)
+        {
+            var localIp = udp.LocalEndPoint.Address.GetAddressBytes();
+            var localPort = (ushort)udp.LocalEndPoint.Port;
+                
+            enterAck.LocalIp = BinaryPrimitives.ReadUInt32LittleEndian(localIp);
+            enterAck.LocalPort = localPort;
+        }
+        
+        await SendPacketAsync(enterAck);
+    }
     
     /// <summary>
-    ///     Syncs the characters in the field with the clients.
+    ///     Syncs the characters to the new client.
     /// </summary>
-    public async Task SyncCharsAsync()
+    private async Task SendCharsAsync(FieldChar target)
     {
-        await _fieldLock.WaitAsync();
-
-        try
+        var chars = new FieldCharEntry4[_chars.Count];
+        var charIndex = 0;
+        
+        foreach (var (key, value) in _chars)
         {
-            var chars = new FieldCharEntry4[_chars.Count];
-            var charIndex = 0;
-            
-            foreach (var (key, value) in _chars)
+            var entry = new FieldCharEntry4
             {
-                var entry = new FieldCharEntry4
-                {
-                    Slot = key,
-                    Team = (byte)value.Team, // 0 = ?, 1 = Red, 2 = Blue
-                    Position = value.Position,
+                Slot = key,
+                Team = (byte)value.Team, // 0 = ?, 1 = Red, 2 = Blue
+                Position = value.Position,
 
-                    Uk4 = 0, // 0 = Play, 1 = Ready
-                    ConnectionId = value.Player.SessionId,
-                    Uk6 = 0,
-                    Uk7 = 0,
-                    Class = 61,
-                    Uk9 = 0,
-                    Uk10 = 0,
-                    UkAA = string.Empty,
-                    NickName = value.Player.Username,
-                    Pride = "Morning",
-                    Uk11 = string.Empty,
-                    Uk11_1 = 0,
-                    Uk16 = 1, // 0 = Play, 1 = Ready
-                    Uk17 = 0,
-                    Uk18 = [],
-                    Uk19 = [],
-                    Uk20 = 0,
-                    Uk21 = 0,
-                    Uk22 = []
-                };
+                Uk4 = 0, // 0 = Play, 1 = Ready
+                ConnectionId = value.Player.SessionId,
+                Uk6 = 0,
+                Uk7 = 0,
+                Class = 61,
+                Uk9 = 0,
+                Uk10 = 0,
+                UkAA = string.Empty,
+                NickName = value.Player.Username,
+                Pride = "Morning",
+                Uk11 = string.Empty,
+                Uk11_1 = 0,
+                Uk16 = 1, // 0 = Play, 1 = Ready
+                Uk17 = 0,
+                Uk18 = [],
+                Uk19 = [],
+                Uk20 = 0,
+                Uk21 = 0,
+                Uk22 = []
+            };
 
-                var udp = value.Player.UdpConnectionDetails;
-                if (udp.RemoteEndPoint != null)
-                {
-                    var remoteIp = udp.RemoteEndPoint.Address.GetAddressBytes();
-                    var remotePort = (ushort)udp.RemoteEndPoint.Port;
-                    
-                    entry.RemoteIp = BinaryPrimitives.ReadUInt32LittleEndian(remoteIp);
-                    entry.RemotePort = remotePort;
-                }
-
-                if (udp.LocalEndPoint != null)
-                {
-                    var localIp = udp.LocalEndPoint.Address.GetAddressBytes();
-                    var localPort = (ushort)udp.LocalEndPoint.Port;
-                    
-                    entry.LocalIp = BinaryPrimitives.ReadUInt32LittleEndian(localIp);
-                    entry.LocalPort = localPort;
-                }
+            var udp = value.Player.UdpConnectionDetails;
+            if (udp.RemoteEndPoint != null)
+            {
+                var remoteIp = udp.RemoteEndPoint.Address.GetAddressBytes();
+                var remotePort = (ushort)udp.RemoteEndPoint.Port;
                 
-                chars[charIndex++] = entry;
+                entry.RemoteIp = BinaryPrimitives.ReadUInt32LittleEndian(remoteIp);
+                entry.RemotePort = remotePort;
             }
 
-            var packet = new CS_FD_CHARS_ACK
+            if (udp.LocalEndPoint != null)
             {
-                Uk1 = 1, // 1 Allows invite and inventory stuff, 0 disables it. (I thought)
-                OwnerCharId = OwnerSlot,
-                FieldId = Id, // Visually it's + 1.
-                Title = Title,
-                Password = Password,
-                MapId = MapId,
-                Mode = Mode,
-                Wins = Wins,
-                UnusedArray = 0,
-                Time = Time,
-                Mission = Mission,
-                FlagTresspass = FlagTresspass, // Effect on "Trespass" and "Observe"
-                FlagHero = FlagHero, // Effect on "Hero" and "Switch offense and defense"
-                FlagHeavy = FlagHeavy,
-                PlayerLimit = PlayerLimit,
-                Uk16 = 0,
-                Uk17 = 0,
-                Uk18 = 0,
-                IsPowerRoom = IsPowerRoom,
-                Chars = chars,
-                ClassMax = ClassMax,
-                ClassMin = ClassMin
-            };
+                var localIp = udp.LocalEndPoint.Address.GetAddressBytes();
+                var localPort = (ushort)udp.LocalEndPoint.Port;
+                
+                entry.LocalIp = BinaryPrimitives.ReadUInt32LittleEndian(localIp);
+                entry.LocalPort = localPort;
+            }
             
-            // Send to all players in the field.
-            await SendPacketAsync(packet);
+            chars[charIndex++] = entry;
         }
-        finally
+
+        var packet = new CS_FD_CHARS_ACK
         {
-            _fieldLock.Release();
-        }
+            Uk1 = 1, // 1 Allows invite and inventory stuff, 0 disables it. (I thought) 
+                     // 1 Allows start button to be pressed, 0 disables its functionality
+            OwnerCharId = OwnerSlot,
+            FieldId = Id, // Visually it's + 1.
+            Title = Title,
+            Password = Password,
+            MapId = MapId,
+            Mode = Mode,
+            Wins = Wins,
+            UnusedArray = 0,
+            Time = Time,
+            Mission = Mission,
+            FlagTresspass = FlagTresspass, // Effect on "Trespass" and "Observe"
+            FlagHero = FlagHero, // Effect on "Hero" and "Switch offense and defense"
+            FlagHeavy = FlagHeavy,
+            PlayerLimit = PlayerLimit,
+            Uk16 = PlayerCount,
+            Uk17 = 0,
+            Uk18 = 0,
+            IsPowerRoom = IsPowerRoom,
+            Chars = chars,
+            ClassMax = ClassMax,
+            ClassMin = ClassMin
+        };
+        
+        // Send to new player in the field.
+        await target.Player.Connection.SendPacketAsync(packet);
     }
     
     /// <summary>

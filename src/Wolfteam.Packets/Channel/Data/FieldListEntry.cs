@@ -21,7 +21,7 @@ public partial class FieldListEntry : IWolfPacket
     
     public uint Mode { get; set; }
     
-    public byte Uk7 { get; set; }
+    public byte Wins { get; set; }
     
     public ushort Time { get; set; }
     

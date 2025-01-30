@@ -320,7 +320,7 @@ public class ChannelConnection : WolfGameConnection
                     IsPlaying = 0,
                     Map = x.MapId,
                     Mode = x.Mode,
-                    Uk7 = x.Wins, // Maybe SubMode?
+                    Wins = x.Wins,
                     Time = x.Time,
                     Mission = x.Mission,
                     Uk10 = x.FlagTresspass, // TODO: Check tresspass
@@ -356,23 +356,11 @@ public class ChannelConnection : WolfGameConnection
                 var field = _state.CreateField(createAck);
                 
                 // Add player to field.
-                if (!await field.AddPlayer(Player))
+                if (!await field.AddPlayer(Player, FieldAddReason.Create))
                 {
                     Close("Failed to add player to newly created field");
                     return;
                 }
-                
-                // Acknowledge creation.
-                await SendPacketAsync(new CS_FD_CREATE_ACK
-                {
-                    Unused = 0,
-                    Uk2 = 1235,
-                    Uk3 = 123,
-                    Uk4 = 12
-                });
-
-                // Sync characters.
-                await field.SyncCharsAsync();
                 break;
             }
             case CS_FD_ENTER_REQ enterReq:
@@ -388,6 +376,9 @@ public class ChannelConnection : WolfGameConnection
                     Close("Player.Field is not null when entering room");
                     return;
                 }
+                
+                // Add player to field.
+                Logger.Information("Entering room {@Room}", enterReq);
 
                 // Get field.
                 var field = _state.GetField(enterReq.FieldId);
@@ -405,36 +396,11 @@ public class ChannelConnection : WolfGameConnection
                     return;
                 }
                 
-                // Add player to field.
-                if (!await field.AddPlayer(Player))
+                if (!await field.AddPlayer(Player, FieldAddReason.Enter))
                 {
                     await SendPacketAsync(new CS_FD_ENTER_ACK(), ErrorCode.S125_RoomSlotsFull);
                     return;
                 }
-                
-                Logger.Information("Entering room {@Room}", enterReq);
-
-                await SendPacketAsync(new CS_FD_ENTER_ACK
-                {
-                    // Only first byte seems to get parsed, not sure what it is.
-                    Uk1 = 0x00,
-                    // Uk1 = 0x7D,
-                    // Uk2 = 0xFFFFFFFF,
-                    // Uk3 = 0xFF,
-                    // Uk4 = 0xFF,
-                    // Uk5 = 0xFFFF,
-                    // Uk6 = 0xFF,
-                    // Uk7 = 0xFF,
-                    // Uk8 = 0xFF,
-                    // Uk9 = 0xFFFFFFFF,
-                    // Uk10 = 0xFFFFFFFF,
-                    // Uk11 = string.Empty,
-                    // Uk12 = Player.Username,
-                    // Uk13 = "Morning",
-                    // Uk14 = string.Empty,
-                });
-                
-                await field.SyncCharsAsync();
                 break;
             }
             case CS_FD_EXIT_REQ exitReq:
@@ -470,19 +436,50 @@ public class ChannelConnection : WolfGameConnection
                     return;
                 }
                 
-                if (Player.FieldChar == null)
+                var fieldChar = Player.FieldChar;
+                if (fieldChar == null)
                 {
                     Close("Player.FieldChar is null");
                     return;
                 }
                 
-                var fieldChar = Player.FieldChar;
-                var field = fieldChar.Field;
-                
-                await SendPacketAsync(new CS_FD_UDPSTART_ACK
+                await fieldChar.Field.StartUdpAsync(fieldChar);
+                break;
+            }
+            case CS_FD_UDPREADY_REQ udpReadyReq:
+            {
+                if (Player == null)
                 {
-                    Uk1 = field.OwnerSlot
-                });
+                    Close("Player is null");
+                    return;
+                }
+                
+                var fieldChar = Player.FieldChar;
+                if (fieldChar == null)
+                {
+                    Close("Player.FieldChar is null");
+                    return;
+                }
+                
+                await fieldChar.Field.ReadyUdpAsync(fieldChar, udpReadyReq.Ready);
+                break;
+            }
+            case CS_FD_STARTGAME_REQ startGameReq:
+            {
+                if (Player == null)
+                {
+                    Close("Player is null");
+                    return;
+                }
+                
+                var fieldChar = Player.FieldChar;
+                if (fieldChar == null)
+                {
+                    Close("Player.FieldChar is null");
+                    return;
+                }
+                
+                await fieldChar.Field.StartGameAsync(fieldChar);
                 break;
             }
             case CS_FD_CHANGETEAM_REQ changeTeamReq:
@@ -493,16 +490,17 @@ public class ChannelConnection : WolfGameConnection
                     return;
                 }
                 
-                if (Player.FieldChar == null)
+                var fieldChar = Player.FieldChar;
+                if (fieldChar == null)
                 {
                     Close("Player.FieldChar is null");
                     return;
                 }
-                
-                var fieldChar = Player.FieldChar;
-                var field = fieldChar.Field;
 
-                await field.ChangeTeam(fieldChar.Slot);
+                if (!await fieldChar.Field.ChangeTeam(fieldChar.Slot))
+                {
+                    await SendPacketAsync(new CS_FD_CHANGETEAM_ACK(), ErrorCode.S149_InvalidSlotNumber);
+                }
                 break;
             }
             case CS_FD_CRM_POPUP_REQ:

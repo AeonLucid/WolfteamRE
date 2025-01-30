@@ -13,21 +13,21 @@ public partial class CS_FD_ENTER_ACK : IWolfPacket
     
     public ushort Unused2 { get; set; }
     
-    public byte Uk1 { get; set; }
+    public byte Slot { get; set; }
     
-    public uint Uk2 { get; set; }
+    public uint Unused3 { get; set; }
     
-    public byte Uk3 { get; set; }
+    public byte Team { get; set; }
     
-    public byte Uk4 { get; set; }
+    public byte Position { get; set; }
     
-    public ushort Uk5 { get; set; }
+    public ushort ConnectionId { get; set; }
     
     public byte Uk6 { get; set; }
     
     public byte Uk7 { get; set; }
     
-    public byte Uk8 { get; set; }
+    public byte Class { get; set; }
     
     public uint Uk9 { get; set; }
     
@@ -37,10 +37,10 @@ public partial class CS_FD_ENTER_ACK : IWolfPacket
     public string? Uk11 { get; set; }
     
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.Unicode)]
-    public string? Uk12 { get; set; }
+    public string? NickName { get; set; }
     
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.Unicode)]
-    public string? Uk13 { get; set; }
+    public string? Pride { get; set; }
 
     [WolfteamField(LengthSize = 1, Encoding = FieldEncoding.ASCII)]
     public string? Uk14 { get; set; }
@@ -67,13 +67,15 @@ public partial class CS_FD_ENTER_ACK : IWolfPacket
     
     public byte Uk22 { get; set; }
     
-    public uint Uk23 { get; set; }
+    public uint RemoteIp { get; set; }
     
-    public ushort Uk24 { get; set; }
+    [WolfteamField(BigEndian = true)]
+    public ushort RemotePort { get; set; }
     
-    public uint Uk25 { get; set; }
+    public uint LocalIp { get; set; }
     
-    public ushort Uk26 { get; set; }
+    [WolfteamField(BigEndian = true)]
+    public ushort LocalPort { get; set; }
     
     public byte Uk27_ArraySize { get; set; }
 }

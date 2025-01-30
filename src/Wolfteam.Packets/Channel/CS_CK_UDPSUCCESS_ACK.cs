@@ -10,7 +10,9 @@ namespace Wolfteam.Packets.Channel;
 public partial class CS_CK_UDPSUCCESS_ACK : IWolfPacket
 {
     public uint RemoteIp { get; set; }
+    [WolfteamField(BigEndian = true)]
     public ushort RemotePort { get; set; }
     public uint LocalIp { get; set; }
+    [WolfteamField(BigEndian = true)]
     public ushort LocalPort { get; set; }
 }
