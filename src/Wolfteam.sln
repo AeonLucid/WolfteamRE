@@ -8,7 +8,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfteam.Server.Login", "Wo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfteam.Server", "Wolfteam.Server\Wolfteam.Server.csproj", "{C49A6AAF-4DF1-47CC-A58C-574077D3157F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfteam.Server.Tests", "Wolfteam.Server.Tests\Wolfteam.Server.Tests.csproj", "{6352C15C-A2C4-4815-9CCC-8580436D7280}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfteam.Tests", "Wolfteam.Tests\Wolfteam.Tests.csproj", "{6352C15C-A2C4-4815-9CCC-8580436D7280}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wolfteam.Server.Broker", "Wolfteam.Server.Broker\Wolfteam.Server.Broker.csproj", "{42F36504-945C-4E2F-8716-35B02F785456}"
 EndProject

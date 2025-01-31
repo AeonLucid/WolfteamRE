@@ -3,13 +3,15 @@
 // Solution Wolfteam, Date 2025-01-26.
 
 using Wolfteam.Packets.Attributes;
+using Wolfteam.Packets.Channel.Data;
 
 namespace Wolfteam.Packets.Channel;
 
 [WolfteamPacket(PacketId.CS_IN_ITEMLIST_ACK)]
 public partial class CS_IN_ITEMLIST_ACK : IWolfPacket
 {
-    public byte Uk1_ArraySize { get; set; }
+    [WolfteamField(LengthSize = 1)]
+    public ItemListUk1[]? Uk1 { get; set; }
     
     public byte Uk2 { get; set; }
 }

@@ -2,6 +2,7 @@
 // Licensed under the AGPL-3.0 License.
 // Solution Wolfteam, Date 2025-01-27.
 
+using System;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -36,7 +37,7 @@ internal static class DiagnosticUtil
     private static readonly DiagnosticDescriptor DescriptorExceptionCaught = new(
         "PKT4", 
         "title", 
-        "Compilation threw an exception", 
+        "Compilation threw an exception {0}", 
         "PacketGenerator", 
         DiagnosticSeverity.Error, 
         true);
@@ -64,9 +65,9 @@ internal static class DiagnosticUtil
         return Diagnostic.Create(DescriptorInvalidObject, location);
     }
 
-    public static Diagnostic ExceptionCaught()
+    public static Diagnostic ExceptionCaught(Location location, Exception e)
     {
-        return Diagnostic.Create(DescriptorExceptionCaught, Location.None);
+        return Diagnostic.Create(DescriptorExceptionCaught, location, e);
     }
 
     public static Diagnostic AttributeFieldMissing(Location location, string fieldName)

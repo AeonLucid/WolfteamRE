@@ -2,6 +2,7 @@
 // Licensed under the AGPL-3.0 License.
 // Solution Wolfteam, Date 2025-01-27.
 
+using System;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
@@ -191,16 +192,23 @@ public class PacketSerializerGenerator : IIncrementalGenerator
             builder.AppendFormat("{0}// {1}\n", ident, propName);
 
             // Version check
-            if (propAttribute.Version != 0)
+            try
             {
-                builder.AppendFormat("{0}if (((int)version & {1}) != 0)\n", ident, (int) propAttribute.Version);
-                builder.AppendFormat("{0}{{\n", ident);
-                WriteProperty(build, codeGen, builder, ident + Constants.DefaultIdent, propType, propName, propAttribute);
-                builder.AppendFormat("{0}}}\n", ident);
+                if (propAttribute.Version != 0)
+                {
+                    builder.AppendFormat("{0}if (((int)version & {1}) != 0)\n", ident, (int)propAttribute.Version);
+                    builder.AppendFormat("{0}{{\n", ident);
+                    WriteProperty(build, codeGen, builder, ident + Constants.DefaultIdent, propType, propName, propAttribute);
+                    builder.AppendFormat("{0}}}\n", ident);
+                }
+                else
+                {
+                    WriteProperty(build, codeGen, builder, ident, propType, propName, propAttribute);
+                }
             }
-            else
+            catch (Exception e)
             {
-                WriteProperty(build, codeGen, builder, ident, propType, propName, propAttribute);
+                build.Context.ReportDiagnostic(DiagnosticUtil.ExceptionCaught(property.GetLocation(), e));
             }
         }
 
@@ -221,7 +229,7 @@ public class PacketSerializerGenerator : IIncrementalGenerator
         StringBuilder builder,
         string ident,
         TypeSyntax propType,
-        string propName,
+        string? propName,
         WolfteamFieldAttribute propAttribute)
     {
         var propTypeName = propType.GetTypeName();
@@ -245,8 +253,7 @@ public class PacketSerializerGenerator : IIncrementalGenerator
                     break;
 
                 case "string":
-                    if (propAttribute.Length == 0 &&
-                        propAttribute.LengthSize == 0)
+                    if (propAttribute.FixedSize == -1 && propAttribute.LengthSize == 0)
                     {
                         build.Context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
                         return;
@@ -266,7 +273,7 @@ public class PacketSerializerGenerator : IIncrementalGenerator
             var typeArrElement = typeArr.ElementType;
             var typeGlobal = typeArrElement.GetGlobalTypeName(build.SemanticModel);
 
-            if (propAttribute.LengthSize == 0)
+            if (propAttribute.FixedSize == -1 && propAttribute.LengthSize == 0)
             {
                 build.Context.ReportDiagnostic(DiagnosticUtil.AttributeFieldMissing(propType.GetLocation(), nameof(propAttribute.LengthSize)));
                 return;

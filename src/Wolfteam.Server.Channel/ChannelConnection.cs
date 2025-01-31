@@ -275,14 +275,236 @@ public class ChannelConnection : WolfGameConnection
             case CS_IN_ITEMLIST_REQ:
                 await SendPacketAsync(new CS_IN_ITEMLIST_ACK
                 {
-                    Uk1_ArraySize = 0x00,
-                    Uk2 = 0xF3
+                    Uk1 = [
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445469,
+                            ItemId = 1001,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223209",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445470,
+                            ItemId = 2001,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223209",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445471,
+                            ItemId = 3024,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223210",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445472,
+                            ItemId = 5013,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223210",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445473,
+                            ItemId = 6009,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223210",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445474,
+                            ItemId = 9001,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223210",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445475,
+                            ItemId = 12156,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20150712223210",
+                            DaysLeft = 65535,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445476,
+                            ItemId = 3003,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20140811223210",
+                            DaysLeft = 6,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445478,
+                            ItemId = 5002,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20140811223210",
+                            DaysLeft = 6,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445479,
+                            ItemId = 6001,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20140811223210",
+                            DaysLeft = 6,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445481,
+                            ItemId = 9002,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20140811223210",
+                            DaysLeft = 6,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        },
+                        new ItemListUk1
+                        {
+                            UniqueId = 180445482,
+                            ItemId = 9006,
+                            Uk3_1 = 0,
+                            Uk3_2 = 0,
+                            Uk3_3 = 0,
+                            Uk3_4 = 0,
+                            Expiry = "20140811223210",
+                            DaysLeft = 6,
+                            Uk6 = 0,
+                            Uk7 = 0
+                        }
+                    ],
+                    Uk2 = 0x00
                 });
                 break;
             case CS_IN_EQUIPLIST_REQ:
                 await SendPacketAsync(new CS_IN_EQUIPLIST_ACK
                 {
-                    Uk1_ArraySize = 0
+                    Uk1 = [
+                        new EquipListEntry
+                        {
+                            Uk1 = 0,
+                            Uk2 = [],
+                            Uk3 = 180445471,
+                            Uk4 = 0,
+                            Uk5 = 0,
+                            Uk6 = 0,
+                            Uk7 = 180445469,
+                            Uk8 = 0,
+                            Uk9 = 0,
+                            Uk10 = 0,
+                            Uk11 = new uint[15],
+                            Uk12 = 180445470,
+                            Uk13 = 0
+                        },
+                        new EquipListEntry
+                        {
+                            Uk1 = 1,
+                            Uk2 = [],
+                            Uk3 = 180445471,
+                            Uk4 = 0,
+                            Uk5 = 0,
+                            Uk6 = 0,
+                            Uk7 = 180445469,
+                            Uk8 = 0,
+                            Uk9 = 0,
+                            Uk10 = 0,
+                            Uk11 = new uint[15],
+                            Uk12 = 180445470,
+                            Uk13 = 0
+                        },
+                        new EquipListEntry
+                        {
+                            Uk1 = 2,
+                            Uk2 = [],
+                            Uk3 = 180445471,
+                            Uk4 = 0,
+                            Uk5 = 0,
+                            Uk6 = 0,
+                            Uk7 = 180445469,
+                            Uk8 = 0,
+                            Uk9 = 0,
+                            Uk10 = 0,
+                            Uk11 = new uint[15],
+                            Uk12 = 180445470,
+                            Uk13 = 0
+                        },
+                        new EquipListEntry
+                        {
+                            Uk1 = 3,
+                            Uk2 = [],
+                            Uk3 = 180445471,
+                            Uk4 = 0,
+                            Uk5 = 0,
+                            Uk6 = 0,
+                            Uk7 = 180445469,
+                            Uk8 = 0,
+                            Uk9 = 0,
+                            Uk10 = 0,
+                            Uk11 = new uint[15],
+                            Uk12 = 180445470,
+                            Uk13 = 0
+                        }
+                    ]
                 });
                 break;
             case CS_IN_CHARITEMLIST_REQ:

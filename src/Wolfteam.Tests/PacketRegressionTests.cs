@@ -4,7 +4,7 @@
 
 using Wolfteam.Packets;
 
-namespace Wolfteam.Server.Tests;
+namespace Wolfteam.Tests;
 
 public class PacketRegressionTests
 {

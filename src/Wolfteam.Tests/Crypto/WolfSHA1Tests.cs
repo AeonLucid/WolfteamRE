@@ -4,7 +4,7 @@
 
 using Wolfteam.Server.Crypto;
 
-namespace Wolfteam.Server.Tests.Crypto;
+namespace Wolfteam.Tests.Crypto;
 
 public class WolfSHA1Tests
 {

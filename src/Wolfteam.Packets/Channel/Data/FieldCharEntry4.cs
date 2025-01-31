@@ -62,7 +62,7 @@ public partial class FieldCharEntry4 : IWolfPacket
     ///     Limited to >= 4, investigate later.
     ///     Hardcode to 0 for now.
     /// </summary>
-    [WolfteamField(LengthSize = 1)]
+    [WolfteamField(LengthSize = 1, MaxSize = 4)]
     public FieldCharEntry4_Uk16[]? Uk17 { get; set; }
     
     [WolfteamField(LengthSize = 1)]

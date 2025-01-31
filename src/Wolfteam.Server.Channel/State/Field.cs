@@ -306,6 +306,15 @@ public class Field
 
     public async Task StartRoundAsync(FieldChar sender)
     {
+        // Status 4 makes player appear in the ingame leaderboard.
+        // Important to send before starting the round for player, otherwise loadout selection won't appear.
+        await SendPacketAsync(new CS_FD_CHANGESLOTSTATUS_ACK
+        {
+            Slot = sender.Slot,
+            Status = 4,
+        });
+        
+        // Start round.
         await sender.Player.Connection.SendPacketAsync(new CS_FD_STARTROUND_ACK
         {
             Uk1 = 1,
@@ -313,13 +322,6 @@ public class Field
             Uk3 = 0,
             Uk4 = 0,
             Uk5 = []
-        });
-
-        // Status 4 makes player appear in the ingame leaderboard.
-        await SendPacketAsync(new CS_FD_CHANGESLOTSTATUS_ACK
-        {
-            Slot = sender.Slot,
-            Status = 4,
         });
     }
     

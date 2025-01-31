@@ -4,7 +4,7 @@
 
 using Wolfteam.Packets.Attributes;
 
-namespace Wolfteam.Packets;
+namespace Wolfteam.Packets.Channel;
 
 [WolfteamPacket(PacketId.CS_FD_DETECTHACKTOOL_REQ)]
 public partial class CS_FD_DETECTHACKTOOL_REQ : IWolfPacket

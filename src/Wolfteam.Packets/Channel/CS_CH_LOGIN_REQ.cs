@@ -28,6 +28,6 @@ public partial class CS_CH_LOGIN_REQ : IWolfPacket
     
     public uint Padding { get; set; }
     
-    [WolfteamField(Length = 32, Encoding = FieldEncoding.ASCII)]
+    [WolfteamField(FixedSize = 32, Encoding = FieldEncoding.ASCII)]
     public string? TmpDllHashes { get; set; }
 }

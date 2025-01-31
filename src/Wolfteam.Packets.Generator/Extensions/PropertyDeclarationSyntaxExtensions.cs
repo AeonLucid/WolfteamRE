@@ -54,11 +54,14 @@ internal static class PropertyDeclarationSyntaxExtensions
                     case nameof(WolfteamFieldAttribute.Version):
                         result.Version = (ClientVersion) argument.Value.Value!;
                         break;
-                    case nameof(WolfteamFieldAttribute.Length):
-                        result.Length = (int) argument.Value.Value!;
-                        break;
                     case nameof(WolfteamFieldAttribute.LengthSize):
                         result.LengthSize = (int) argument.Value.Value!;
+                        break;
+                    case nameof(WolfteamFieldAttribute.MaxSize):
+                        result.MaxSize = (int) argument.Value.Value!;
+                        break;
+                    case nameof(WolfteamFieldAttribute.FixedSize):
+                        result.FixedSize = (int) argument.Value.Value!;
                         break;
                     case nameof(WolfteamFieldAttribute.BigEndian):
                         result.BigEndian = (bool) argument.Value.Value!;

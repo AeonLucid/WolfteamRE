@@ -14,8 +14,10 @@ internal class CodeGenDeserialize : ICodeGen
     public const string ShortValue = "ushortValue";
     public const string ByteValue = "byteValue";
 
-    public void WriteU8(StringBuilder builder, string ident, object value, WolfteamFieldAttribute attribute)
+    public void WriteU8(StringBuilder builder, string ident, object? value, WolfteamFieldAttribute attribute)
     {
+        value ??= 0;
+        
         builder.AppendFormat("{0}if (!reader.TryReadU8(out {1})) {{\n", ident, ByteValue);
         builder.AppendFormat("{0}return false;\n", ident + Constants.DefaultIdent);
         builder.AppendFormat("{0}}}\n", ident);
@@ -26,8 +28,10 @@ internal class CodeGenDeserialize : ICodeGen
         }
     }
 
-    public void WriteU16(StringBuilder builder, string ident, object value, WolfteamFieldAttribute attribute)
+    public void WriteU16(StringBuilder builder, string ident, object? value, WolfteamFieldAttribute attribute)
     {
+        value ??= 0;
+
         builder.AppendFormat(attribute.BigEndian
                 ? "{0}if (!reader.TryReadU16BE(out {1})) {{\n"
                 : "{0}if (!reader.TryReadU16(out {1})) {{\n", ident, ShortValue);
@@ -41,8 +45,10 @@ internal class CodeGenDeserialize : ICodeGen
         }
     }
 
-    public void WriteU32(StringBuilder builder, string ident, object value, WolfteamFieldAttribute attribute)
+    public void WriteU32(StringBuilder builder, string ident, object? value, WolfteamFieldAttribute attribute)
     {
+        value ??= 0;
+
         builder.AppendFormat("{0}if (!reader.TryReadU32(out {1})) {{\n", ident, IntValue);
         builder.AppendFormat("{0}return false;\n", ident + Constants.DefaultIdent);
         builder.AppendFormat("{0}}}\n", ident);
@@ -53,14 +59,19 @@ internal class CodeGenDeserialize : ICodeGen
         }
     }
 
-    public void WriteString(StringBuilder builder, string ident, string refName, WolfteamFieldAttribute attribute)
+    public void WriteString(StringBuilder builder, string ident, string? refName, WolfteamFieldAttribute attribute)
     {
+        if (string.IsNullOrEmpty(refName))
+        {
+            throw new ArgumentNullException(nameof(refName));
+        }
+        
         // Read length.
         string lengthRef;
         
-        if (attribute.Length != 0)
+        if (attribute.FixedSize > 0)
         {
-            lengthRef = attribute.Length.ToString();
+            lengthRef = attribute.FixedSize.ToString();
         }
         else
         {
@@ -93,33 +104,59 @@ internal class CodeGenDeserialize : ICodeGen
         builder.AppendFormat("{0}{1} = {2};\n", ident, refName, outRef);
     }
 
-    public void WriteObject(StringBuilder builder, string ident, string refName, string typeName, WolfteamFieldAttribute attribute)
+    public void WriteObject(StringBuilder builder, string ident, string? refName, string typeName, WolfteamFieldAttribute attribute)
     {
+        if (string.IsNullOrEmpty(refName))
+        {
+            throw new ArgumentNullException(nameof(refName));
+        }
+        
         builder.AppendFormat("{0}{1} = new {2}();\n", ident, refName, typeName);
         builder.AppendFormat("{0}{1}.Deserialize(version, ref reader);\n", ident, refName);
     }
 
-    public void WriteObjectArray(StringBuilder builder, string ident, string refName, string typeName, WolfteamFieldAttribute attribute, ArrayElementDelegate writeElement)
+    public void WriteObjectArray(StringBuilder builder, string ident, string? refName, string typeName, WolfteamFieldAttribute attribute, ArrayElementDelegate writeElement)
     {
+        if (string.IsNullOrEmpty(refName))
+        {
+            throw new ArgumentNullException(nameof(refName));
+        }
+        
         // Read length.
         string lengthRef;
             
-        switch (attribute.LengthSize)
+        if (attribute.FixedSize > 0)
         {
-            case 1:
-                lengthRef = ByteValue;
-                WriteU8(builder, ident, ByteValue, attribute);
-                break;
-            case 2:
-                lengthRef = ShortValue;
-                WriteU16(builder, ident, ShortValue, attribute);
-                break;
-            case 4:
-                lengthRef = IntValue;
-                WriteU32(builder, ident, IntValue, attribute);
-                break;
-            default:
-                throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            lengthRef = attribute.FixedSize.ToString();
+        }
+        else
+        {
+            switch (attribute.LengthSize)
+            {
+                case 1:
+                    lengthRef = ByteValue;
+                    WriteU8(builder, ident, ByteValue, attribute);
+                    break;
+                case 2:
+                    lengthRef = ShortValue;
+                    WriteU16(builder, ident, ShortValue, attribute);
+                    break;
+                case 4:
+                    lengthRef = IntValue;
+                    WriteU32(builder, ident, IntValue, attribute);
+                    break;
+                default:
+                    throw new NotImplementedException($"Length {attribute.LengthSize} not implemented");
+            }
+        }
+        
+        // Check length.
+        if (attribute.MaxSize != -1)
+        {
+            builder.AppendFormat("{0}if ({1} > {2})\n", ident, lengthRef, attribute.MaxSize);
+            builder.AppendFormat("{0}{{\n", ident);
+            builder.AppendFormat("{0}throw new InvalidOperationException($\"{{nameof({1})}} length should be less than or equal to {2}\");\n", ident + Constants.DefaultIdent, refName, attribute.MaxSize);
+            builder.AppendFormat("{0}}}\n", ident);
         }
             
         builder.AppendFormat("{0}{1} = new {2}[{3}];\n", ident, refName, typeName, lengthRef);
