@@ -2,11 +2,14 @@
 // Licensed under the AGPL-3.0 License.
 // Solution Wolfteam, Date 2025-01-21.
 
+using System.Buffers.Binary;
+using System.Net;
 using System.Net.Sockets;
 using Serilog;
 using Wolfteam.Packets;
 using Wolfteam.Packets.Broker;
 using Wolfteam.Packets.Broker.Data;
+using Wolfteam.Packets.Unknown;
 
 namespace Wolfteam.Server.Broker;
 
@@ -21,6 +24,9 @@ public class BrokerConnection : WolfGameConnection
 
     public override async ValueTask HandlePacketAsync(PacketId id, IWolfPacket packet)
     {
+        var ipAddress = IPAddress.Parse("127.0.0.1");
+        var ipAddressInt = BinaryPrimitives.ReadUInt32LittleEndian(ipAddress.GetAddressBytes());
+        
         switch (packet)
         {
             case CS_BR_CHAINLIST_REQ:
@@ -28,6 +34,18 @@ public class BrokerConnection : WolfGameConnection
                 {
                     // Must be 14 entries.
                     Chainlist = Enumerable.Repeat((byte)14, 14).ToArray()
+                });
+
+                await SendPacketAsync(new CS_UNKNOWN_BUDDYSERVER_ACK
+                {
+                    IpAddress = ipAddressInt,
+                    Port = 40950
+                });
+
+                await SendPacketAsync(new CS_UNKNOWN_UNKNOWNSERVER_ACK
+                {
+                    IpAddress = ipAddressInt,
+                    Port = 40955
                 });
                 break;
             case CS_BR_WORLDLIST_REQ:
@@ -38,7 +56,7 @@ public class BrokerConnection : WolfGameConnection
                     [
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -48,7 +66,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -58,7 +76,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -68,7 +86,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -78,7 +96,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -88,7 +106,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -98,7 +116,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -108,7 +126,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -118,7 +136,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -128,7 +146,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -138,7 +156,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -148,7 +166,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -158,7 +176,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -168,7 +186,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -178,7 +196,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -188,7 +206,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -198,7 +216,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -208,7 +226,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -218,7 +236,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,
@@ -228,7 +246,7 @@ public class BrokerConnection : WolfGameConnection
                         },
                         new WorldListEntry
                         {
-                            IpAddress = 0x0100007F,
+                            IpAddress = ipAddressInt,
                             Port = 40850,
                             Uk1 = 3,
                             Uk2 = 0,

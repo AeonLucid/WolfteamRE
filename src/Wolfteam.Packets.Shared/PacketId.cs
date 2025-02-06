@@ -2,6 +2,9 @@
 
 public enum PacketId : ushort
 {
+    CS_UNKNOWN_BUDDYSERVER_ACK = 0x50C,
+    CS_UNKNOWN_UNKNOWNSERVER_ACK = 0x50E,
+    
     // Broker.
     CS_BR_WORLDLIST_REQ = 0x1100,
     CS_BR_WORLDLIST_ACK = 0x1101,

@@ -32,7 +32,7 @@ public static class SerilogConfig
             .MinimumLevel.Verbose()
             .WriteTo.Console(
                 formatter: new ExpressionTemplate("[{@t:HH:mm:ss} {@l:u3} {Substring(SourceContext, LastIndexOf(SourceContext, '.') + 1),-20}] {@m}\n{@x}",
-                    theme: SerilogConfig.Theme))
+                    theme: Theme))
             .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day);
     }
 }

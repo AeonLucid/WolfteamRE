@@ -290,11 +290,7 @@ public class Field
         // TODO: Improve this, also change slot statuses (See CS_FD_CHANGESLOTSTATUS_ACK).
         foreach (var (_, value) in _chars)
         {
-            await SendPacketAsync(new CS_FD_CHANGESLOTSTATUS_ACK
-            {
-                Slot = value.Slot,
-                Status = 3
-            });
+            await value.UpdateStatus(3);
         }
         
         await SendPacketAsync(new CS_FD_STARTGAME_ACK
@@ -308,11 +304,7 @@ public class Field
     {
         // Status 4 makes player appear in the ingame leaderboard.
         // Important to send before starting the round for player, otherwise loadout selection won't appear.
-        await SendPacketAsync(new CS_FD_CHANGESLOTSTATUS_ACK
-        {
-            Slot = sender.Slot,
-            Status = 4,
-        });
+        await sender.UpdateStatus(4);
         
         // Start round.
         await sender.Player.Connection.SendPacketAsync(new CS_FD_STARTROUND_ACK
@@ -566,7 +558,7 @@ public class Field
     /// <summary>
     ///     Send a packet to all players in the field.
     /// </summary>
-    private async Task SendPacketAsync(IWolfPacket packet)
+    public async Task SendPacketAsync(IWolfPacket packet)
     {
         foreach (var (_, value) in _chars)
         {

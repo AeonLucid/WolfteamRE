@@ -6,6 +6,7 @@ using System.Buffers;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using Serilog;
+using Wolfteam.Server.Crypto;
 using Wolfteam.Server.Login.Packets;
 using static Wolfteam.Server.Login.Constants;
 
@@ -54,9 +55,10 @@ public class LoginConnection : WolfConnection
 
                 // TODO: Retrieve password hash from database.
                 var passwordHash = MD5.HashData("qqq"u8.ToArray());
+                var passwordHashHex = Convert.ToHexStringLower(passwordHash.AsSpan(6, 10));
                 
-                _cryptoAuth.Key = LoginRequest.CreateAuthKey(username, passwordHash, magic);
-                
+                _cryptoAuth.Key = WolfCrypto.CreateAuthKey(username, passwordHashHex, magic);
+
                 if (!LoginRequest.TryDecryptAuth(_cryptoAuth, ref authData, out var password, out var version))
                 {
                     Logger.Warning("Invalid password data");
